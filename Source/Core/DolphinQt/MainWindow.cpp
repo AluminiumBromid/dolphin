@@ -123,6 +123,7 @@
 #include "DolphinQt/TAS/WiiTASInputWindow.h"
 #include "DolphinQt/ToolBar.h"
 #include "DolphinQt/WiiUpdate.h"
+#include "DolphinQt/CVarsWindow.h"
 
 #include "UICommon/DiscordPresence.h"
 #include "UICommon/GameFile.h"
@@ -601,6 +602,8 @@ void MainWindow::ConnectMenuBar()
   connect(m_game_list, &GameList::SelectionChanged, m_menu_bar, &MenuBar::SelectionChanged);
   connect(this, &MainWindow::ReadOnlyModeChanged, m_menu_bar, &MenuBar::ReadOnlyModeChanged);
   connect(this, &MainWindow::RecordingStatusChanged, m_menu_bar, &MenuBar::RecordingStatusChanged);
+
+  connect(m_menu_bar, &MenuBar::OpenCVarsMenu, this, &MainWindow::OpenCVarsMenu);
 }
 
 void MainWindow::ConnectHotkeys()
@@ -2024,8 +2027,9 @@ void MainWindow::ShowTASInput()
 
   for (int i = 0; i < num_wii_controllers; i++)
   {
-    if (Config::Get(Config::GetInfoForWiimoteSource(i)) == WiimoteSource::Emulated &&
-        (!Core::IsRunning(m_system) || m_system.IsWii()))
+    if ((Config::Get(Config::GetInfoForWiimoteSource(i)) == WiimoteSource::Emulated ||
+        Config::Get(Config::GetInfoForWiimoteSource(i)) == WiimoteSource::Metroid) &&
+        (!Core::IsRunning(system) || system.IsWii()))
     {
       m_wii_tas_input_windows[i]->show();
       m_wii_tas_input_windows[i]->raise();
