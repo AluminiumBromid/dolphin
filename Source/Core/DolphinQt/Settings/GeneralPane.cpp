@@ -85,8 +85,12 @@ void GeneralPane::OnEmulationStateChanged(Core::State state)
   const bool running = state != Core::State::Uninitialized;
 
   m_checkbox_dualcore->setEnabled(!running);
+<<<<<<< HEAD
   m_checkbox_cheats->setEnabled(!running && !hardcore);
   m_checkbox_load_games_into_memory->setEnabled(!running);
+=======
+  m_checkbox_cheats->setEnabled(!running);
+>>>>>>> e01ec6bb22 (Rebase to 2503)
   m_checkbox_primehack->setEnabled(!running);
   m_checkbox_override_region_settings->setEnabled(!running);
 #ifdef USE_DISCORD_PRESENCE
