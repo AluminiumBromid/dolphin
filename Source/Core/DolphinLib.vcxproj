@@ -72,6 +72,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\PrimeHack\Mods\AutoFogToggleMP3.cpp" />
+    <ClCompile Include="InputCommon\ControllerEmu\ControlGroup\PrimeHackMapProfile.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="InputCommon\ControllerEmu\ControlGroup\PrimeHackMapProfile.h" />
   </ItemGroup>
   <UsingTask TaskName="GetProductVersion" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>

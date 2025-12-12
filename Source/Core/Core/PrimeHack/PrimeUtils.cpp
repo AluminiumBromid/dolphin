@@ -163,22 +163,51 @@ int get_beam_switch(std::array<int, 4> const& beams) {
 void swap_alt_profiles(u32 ball_state, u32 transition_state)
 {
   /* Ball State 1 - Morphed, Transition State 1 - Map */
-  if ((ball_state == 1 || ball_state == 2 || transition_state == 1) && !was_in_alternate)
-  {
-    std::string profile = GetProfiles().first;
+  AltProfileState desired = AltProfileState::Normal;
 
-    if (!profile.empty() && (profile != std::string("Disabled"))) {
-      ChangeControllerProfileAlt(profile);
-    }
-    was_in_alternate = true;
-  }
-  else if ((ball_state == 0 && transition_state != 1) && was_in_alternate)
+  // Map has priority.
+  if (transition_state == 1)
   {
-    std::string profile = GetProfiles().second;
-
-    ChangeControllerProfileAlt(profile);
-    was_in_alternate = false;
+    desired = AltProfileState::Map;
   }
+  else if (ball_state == 1 || ball_state == 2)
+  {
+    desired = AltProfileState::MorphBall;
+  }
+  else
+  {
+    desired = AltProfileState::Normal;
+  }
+
+  if (desired == s_alt_profile_state)
+    return;
+
+  PrimeHackProfiles profiles = GetProfiles();
+  const std::string* path = nullptr;
+
+  switch (desired)
+  {
+  case AltProfileState::Normal:
+    path = &profiles.main_profile;
+    break;
+
+  case AltProfileState::MorphBall:
+    // fall back to main if morphball profile not set
+    path =
+        !profiles.morphball_profile.empty() ? &profiles.morphball_profile : &profiles.main_profile;
+    break;
+
+  case AltProfileState::Map:
+    // fall back to main if map profile not set
+    path = !profiles.map_profile.empty() ? &profiles.map_profile : &profiles.main_profile;
+    break;
+  }
+
+  if (!path || path->empty())
+    return;
+
+  ChangeControllerProfileAlt(*path);
+  s_alt_profile_state = desired;
 }
 
 std::stringstream ss;
