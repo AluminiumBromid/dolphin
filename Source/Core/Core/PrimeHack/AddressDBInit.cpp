@@ -149,7 +149,7 @@ void init_db(AddressDB& addr_db) {
   addr_db.register_dynamic_address(Game::PRIME_2, "angular_momentum", "player", {mrt1(0x178)});
   addr_db.register_dynamic_address(Game::PRIME_2, "firstperson_pitch", "player", {mrt1(0x5f0)});
   addr_db.register_dynamic_address(Game::PRIME_2, "armcannon_matrix", "player", {mrt1(0xea8), mrt1(0x3b0)});
-  addr_db.register_dynamic_address(Game::PRIME_2, "ball_state", "player", {mrt1(0x374)});
+  addr_db.register_dynamic_address(Game::PRIME_2, "ball_state", "player", {mrt1(0x378)});
   addr_db.register_dynamic_address(Game::PRIME_2, "powerups_array", "player", {mrt1(0x12ec), rt0});
   addr_db.register_dynamic_address(Game::PRIME_2, "active_visor", "powerups_array", {mrt1(0x34)});
   addr_db.register_dynamic_address(Game::PRIME_2, "world_id", "world_id_ptr", {rt0, rt0});
