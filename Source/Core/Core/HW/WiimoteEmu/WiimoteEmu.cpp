@@ -39,6 +39,7 @@
 #include "InputCommon/ControllerEmu/ControlGroup/Attachments.h"
 #include "InputCommon/ControllerEmu/ControlGroup/PrimeHackModes.h"
 #include "InputCommon/ControllerEmu/ControlGroup/PrimeHackAltProfile.h"
+#include "InputCommon/ControllerEmu/ControlGroup/PrimeHackMapProfile.h"
 #include "InputCommon/ControllerEmu/ControlGroup/Buttons.h"
 #include "InputCommon/ControllerEmu/ControlGroup/ControlGroup.h"
 #include "InputCommon/ControllerEmu/ControlGroup/Cursor.h"
@@ -360,6 +361,8 @@ Wiimote::Wiimote(const unsigned int index) : m_index(index), m_bt_device_index(i
 
   groups.emplace_back(m_primehack_altprofile_controls =
                           new ControllerEmu::PrimeHackAltProfile(_trans("PrimeHack"), ""));
+  groups.emplace_back(m_primehack_mapprofile_controls =
+                          new ControllerEmu::PrimeHackMapProfile(_trans("Map Profile"), ""));
 
   groups.emplace_back(m_primehack_camera = new ControllerEmu::ControlGroup(_trans("PrimeHack")));
 
@@ -479,6 +482,8 @@ ControllerEmu::ControlGroup* Wiimote::GetWiimoteGroup(WiimoteGroup group) const
     return m_primehack_modes;
   case WiimoteGroup::AltProfileControls:
     return m_primehack_altprofile_controls;
+  case WiimoteGroup::MapProfileControls:
+    return m_primehack_mapprofile_controls;
   default:
     ASSERT(false);
     return nullptr;

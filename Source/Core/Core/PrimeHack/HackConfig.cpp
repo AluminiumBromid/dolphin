@@ -47,6 +47,7 @@
 
 #include "InputCommon/ControllerInterface/ControllerInterface.h"
 #include "InputCommon/ControllerEmu/ControlGroup/PrimeHackAltProfile.h"
+#include "InputCommon/ControllerEmu/ControlGroup/PrimeHackMapProfile.h"
 #include "InputCommon/InputConfig.h"
 
 #include "VideoCommon/VideoConfig.h"
@@ -277,30 +278,47 @@ std::tuple<float, float, float> GetArmXYZ() {
   return std::make_tuple(x, y, z);
 }
 
+PrimeHackProfiles GetProfiles()
+{
+  PrimeHackProfiles profiles;
 
-std::pair<std::string, std::string> GetProfiles() {
-  auto* group = static_cast<ControllerEmu::PrimeHackAltProfile*>(
-    Wiimote::GetWiimoteGroup(0, WiimoteEmu::WiimoteGroup::AltProfileControls));
+  // Main (normal) profile is the backup of WiimoteNew.ini
+  profiles.main_profile = File::GetUserPath(D_CONFIG_IDX) + WIIMOTE_INI_NAME + "_Backup.ini";
 
-  const std::string alt_profname = group->GetAltProfileName();
-  std::string alt_profile_path;
-  std::string main_profile_path;
+  auto* morph_group = static_cast<ControllerEmu::PrimeHackAltProfile*>(
+      Wiimote::GetWiimoteGroup(0, WiimoteEmu::WiimoteGroup::AltProfileControls));
 
-  if (!alt_profname.empty() && (alt_profname != std::string("Disabled"))) {
-    alt_profile_path = File::GetUserPath(D_CONFIG_IDX) + PROFILES_DIR +
-                         Wiimote::GetConfig()->GetProfileKey() + "/" + group->GetAltProfileName() +
-      ".ini";
-  } else {
-    alt_profile_path = "";
-  }
+  auto* map_group = static_cast<ControllerEmu::PrimeHackMapProfile*>(
+      Wiimote::GetWiimoteGroup(0, WiimoteEmu::WiimoteGroup::MapProfileControls));
 
-  main_profile_path = File::GetUserPath(D_CONFIG_IDX) + WIIMOTE_INI_NAME + "_Backup.ini";
+  const auto build_profile_path = [](const std::string& name) -> std::string {
+    if (name.empty() || name == "Disabled")
+      return {};
+    return File::GetUserPath(D_CONFIG_IDX) + PROFILES_DIR + Wiimote::GetConfig()->GetProfileKey() +
+           "/" + name + ".ini";
+  };
 
-  return { alt_profile_path, main_profile_path };
+  if (morph_group)
+    profiles.morphball_profile = build_profile_path(morph_group->GetAltProfileName());
+
+  if (map_group)
+    profiles.map_profile = build_profile_path(map_group->GetMapProfileName());
+
+  return profiles;
 }
 
 void ChangeControllerProfileAlt(std::string profile_path)
 {
+  // Cache the selector values BEFORE loading anything (LoadConfig overwrites them).
+  auto* morph_group = static_cast<ControllerEmu::PrimeHackAltProfile*>(
+      Wiimote::GetWiimoteGroup(0, WiimoteEmu::WiimoteGroup::AltProfileControls));
+
+  auto* map_group = static_cast<ControllerEmu::PrimeHackMapProfile*>(
+      Wiimote::GetWiimoteGroup(0, WiimoteEmu::WiimoteGroup::MapProfileControls));
+
+  std::string cached_morph = morph_group ? morph_group->GetAltProfileName() : std::string{};
+  std::string cached_map = map_group ? map_group->GetMapProfileName() : std::string{};
+
   Common::IniFile ini;
   ini.Load(profile_path);
 
@@ -308,7 +326,15 @@ void ChangeControllerProfileAlt(std::string profile_path)
 
   Wiimote::GetConfig()->GetController(0)->LoadConfig(ini.GetOrCreateSection(profile_name));
   Wiimote::GetConfig()->GetController(0)->UpdateReferences(g_controller_interface);
+
+  // Restore selectors AFTER loading the profile.
+  if (morph_group)
+    morph_group->SetAltProfileName(cached_morph);
+
+  if (map_group)
+    map_group->SetMapProfileName(cached_map);
 }
+
 
 void UpdateHackSettings() {
   double camera, cursor;

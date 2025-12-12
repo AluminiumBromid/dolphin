@@ -9,6 +9,22 @@
 
 #include "InputCommon/ControlReference/ControlReference.h"
 
+struct PrimeHackProfiles
+{
+  std::string main_profile;
+  std::string morphball_profile;
+  std::string map_profile;
+};
+
+enum class AltProfileState
+{
+  Normal,
+  MorphBall,
+  Map,
+};
+
+static AltProfileState s_alt_profile_state = AltProfileState::Normal;
+
 // Naming scheme will match dolphin as this place acts as an interface between the hack & dolphin proper
 namespace prime {
 void InitializeHack();
@@ -82,7 +98,7 @@ CameraLock GetLockCamera();
 bool CheckPitchRecentre();
 bool ControllerMode();
 
-std::pair<std::string, std::string> GetProfiles();
+PrimeHackProfiles GetProfiles();
 void ChangeControllerProfileAlt(std::string profile);
 
 double GetHorizontalAxis();

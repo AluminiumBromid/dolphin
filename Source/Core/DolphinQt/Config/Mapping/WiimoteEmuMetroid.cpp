@@ -29,6 +29,7 @@
 #include "InputCommon/ControllerEmu/ControlGroup/ControlGroup.h"
 #include "InputCommon/ControllerEmu/ControlGroup/PrimeHackModes.h"
 #include "InputCommon/ControllerEmu/ControlGroup/PrimeHackAltProfile.h"
+#include "InputCommon/ControllerEmu/ControlGroup/PrimeHackMapProfile.h"
 #include "InputCommon/InputConfig.h"
 
 
@@ -67,24 +68,31 @@ void WiimoteEmuMetroid::UpdateMorphProfileBackupFile()
 void WiimoteEmuMetroid::PopulateMorphBallProfiles()
 {
   m_morphball_combobox->clear();
+  m_map_combobox->clear();
 
   const std::string profiles_path =
       File::GetUserPath(D_CONFIG_IDX) + PROFILES_DIR + GetConfig()->GetProfileKey();
 
   //Add default value
   m_morphball_combobox->addItem(QString::fromStdString(std::string("Disabled")),
-                                      QString::fromStdString(std::string("Disabled")));
+                                QString::fromStdString(std::string("Disabled")));
+  m_map_combobox->addItem(QString::fromStdString(std::string("Disabled")),
+                                QString::fromStdString(std::string("Disabled")));
 
   for (const auto& filename : Common::DoFileSearch({profiles_path}, {".ini"}))
   {
     std::string basename;
     SplitPath(filename, nullptr, &basename, nullptr);
     if (!basename.empty())  // Ignore files with an empty name to avoid multiple problems
+    {
       m_morphball_combobox->addItem(QString::fromStdString(basename),
-                                      QString::fromStdString(filename));
+                                    QString::fromStdString(filename));
+      m_map_combobox->addItem(QString::fromStdString(basename), QString::fromStdString(filename));
+    }  
   }
 
   m_morphball_combobox->insertSeparator(m_morphball_combobox->count());
+  m_map_combobox->insertSeparator(m_map_combobox->count());
 
   const std::string builtin_profiles_path =
       File::GetSysDirectory() + PROFILES_DIR + GetConfig()->GetProfileKey();
@@ -96,16 +104,23 @@ void WiimoteEmuMetroid::PopulateMorphBallProfiles()
     {
       // i18n: "Stock" refers to input profiles included with Dolphin
       m_morphball_combobox->addItem(tr("%1 (Stock)").arg(QString::fromStdString(basename)),
-                                      QString::fromStdString(filename));
+                                    QString::fromStdString(filename));
+      m_map_combobox->addItem(tr("%1 (Stock)").arg(QString::fromStdString(basename)),
+                                    QString::fromStdString(filename));
     }
   }
 
   auto* morph_group = static_cast<ControllerEmu::PrimeHackAltProfile*>(
       Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::AltProfileControls));
 
-  QString text = tr(morph_group->GetAltProfileName().c_str());
-  std::string cstring = morph_group->GetAltProfileName();
-  m_morphball_combobox->setCurrentIndex(m_morphball_combobox->findText(text));
+  QString morph_text = tr(morph_group->GetAltProfileName().c_str());
+  m_morphball_combobox->setCurrentIndex(m_morphball_combobox->findText(morph_text));
+
+  auto* map_group = static_cast<ControllerEmu::PrimeHackMapProfile*>(
+      Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::MapProfileControls));
+
+  QString map_text = tr(map_group->GetMapProfileName().c_str());
+  m_map_combobox->setCurrentIndex(m_map_combobox->findText(map_text));
 }
 
 void WiimoteEmuMetroid::CreateMainLayout()
@@ -159,11 +174,17 @@ void WiimoteEmuMetroid::CreateMainLayout()
       GetPort(), WiimoteEmu::WiimoteGroup::Visors));
   groupbox1->addWidget(visor_box);
 
-  auto* morphball_control_box = CreateGroupBox(tr("Morphball & Map Profile"), Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::AltProfileControls));
+  auto* morphball_control_box = CreateGroupBox(tr("Morphball Profile"), Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::AltProfileControls));
   groupbox1->addWidget(morphball_control_box);
   m_morphball_combobox = (morphball_control_box->findChild<QComboBox*>(tr("ProfileList")));
-  m_morphball_combobox->setToolTip(tr("Set the controller profile to use\nwhen in Morph Ball and Map."));
+  m_morphball_combobox->setToolTip(tr("Set the controller profile to use\nwhen in Morph Ball"));
   m_morphball_combobox->setEditable(false);
+
+  auto* map_control_box = CreateGroupBox(tr("Map Profile"), Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::MapProfileControls));
+  groupbox1->addWidget(map_control_box);
+  m_map_combobox = (map_control_box->findChild<QComboBox*>(tr("ProfileList")));
+  m_map_combobox->setToolTip(tr("Set the controller profile to use\nwhen in Map"));
+  m_map_combobox->setEditable(false);
 
   PopulateMorphBallProfiles();
 
@@ -240,8 +261,10 @@ void WiimoteEmuMetroid::Connect()
     &WiimoteEmuMetroid::OnDeviceSelected);
 
   connect(parent, &MappingWindow::finished, this, &WiimoteEmuMetroid::OnMorphControlSelectionChanged);
+  connect(parent, &MappingWindow::finished, this, &WiimoteEmuMetroid::OnMapControlSelectionChanged);
   connect(parent, &MappingWindow::rejected, this, &WiimoteEmuMetroid::MappingWindowProfileSave);
   connect(m_morphball_combobox, &QComboBox::textActivated, this, &WiimoteEmuMetroid::MappingWindowProfileSave);
+  connect(m_map_combobox, &QComboBox::textActivated, this, &WiimoteEmuMetroid::MappingWindowProfileSave);
 }
 
 void WiimoteEmuMetroid::OnDeviceSelected()
@@ -270,6 +293,20 @@ void WiimoteEmuMetroid::OnMorphControlSelectionChanged()
   SaveSettings();
 }
 
+void WiimoteEmuMetroid::OnMapControlSelectionChanged()
+{
+  // Called as soon as our selection is changed to update the controller preset for Morphball mode.
+  auto* map_group = static_cast<ControllerEmu::PrimeHackMapProfile*>(
+      Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::MapProfileControls));
+
+  std::string curr_text = m_map_combobox->currentText().toStdString();
+  if (!curr_text.empty())
+    map_group->SetMapProfileName(curr_text);
+
+  ConfigChanged();
+  SaveSettings();
+}
+
 void WiimoteEmuMetroid::MappingWindowProfileLoad()
 {
   PopulateMorphBallProfiles();
@@ -284,9 +321,16 @@ void WiimoteEmuMetroid::MappingWindowProfileSave()
   auto* morph_group = static_cast<ControllerEmu::PrimeHackAltProfile*>(
       Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::AltProfileControls));
 
-  std::string curr_text = m_morphball_combobox->currentText().toStdString();
-  if (!curr_text.empty())
-    morph_group->SetAltProfileName(curr_text);
+  std::string morph_text = m_morphball_combobox->currentText().toStdString();
+  if (!morph_text.empty())
+    morph_group->SetAltProfileName(morph_text);
+
+  auto* map_group = static_cast<ControllerEmu::PrimeHackMapProfile*>(
+      Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::MapProfileControls));
+
+  std::string map_text = m_map_combobox->currentText().toStdString();
+  if (!map_text.empty())
+    map_group->SetMapProfileName(map_text);
 
   PopulateMorphBallProfiles();
   SaveSettings();
@@ -319,6 +363,9 @@ void WiimoteEmuMetroid::LoadSettings()
   auto* morph_group = static_cast<ControllerEmu::PrimeHackAltProfile*>(
       Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::AltProfileControls));
 
+  auto* map_group = static_cast<ControllerEmu::PrimeHackMapProfile*>(
+      Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::MapProfileControls));
+
   auto* modes = static_cast<ControllerEmu::PrimeHackModes*>(
     Wiimote::GetWiimoteGroup(GetPort(), WiimoteEmu::WiimoteGroup::Modes));
 
@@ -338,9 +385,11 @@ void WiimoteEmuMetroid::LoadSettings()
   m_radio_controller->setChecked(!checked);
   camera_control->setEnabled(!checked);
 
-  QString text = tr(morph_group->GetAltProfileName().c_str());
+  QString morph_text = tr(morph_group->GetAltProfileName().c_str());
+  QString map_text = tr(map_group->GetMapProfileName().c_str());
 
-  m_morphball_combobox->setCurrentIndex(m_morphball_combobox->findText(text));
+  m_morphball_combobox->setCurrentIndex(m_morphball_combobox->findText(morph_text));
+  m_map_combobox->setCurrentIndex(m_map_combobox->findText(map_text));
 
 }
 
