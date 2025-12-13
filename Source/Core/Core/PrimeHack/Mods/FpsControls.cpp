@@ -573,13 +573,25 @@ void FpsControls::run_mod_mp2_gc(Region region) {
   }
 
   LOOKUP_DYN(camera_state);
-  if (read32(camera_state) != 0)
+  const u32 cam_state = read32(camera_state);
+  static u32 prev_cam_state = 0;
+
+  const bool camera_is_controlled_by_game = (cam_state != 0);
+  const bool camera_was_controlled_by_game_last_frame = (prev_cam_state != 0 && cam_state == 0); // necessary to display the correct view after cutscene ends.
+  const bool sync_view_from_camera = camera_is_controlled_by_game || camera_was_controlled_by_game_last_frame;
+
+  if (sync_view_from_camera)
   {
     vec3 fwd = cplayer_xf.fwd();
     yaw = atan2f(fwd.y, fwd.x);
     pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
+  }
+  if (camera_is_controlled_by_game)
+  {
+    prev_cam_state = cam_state;
     return;
   }
+  prev_cam_state = cam_state;
 
   LOOKUP(tweak_player_offset);
   const u32 tweak_player_address = read32(read32(Core::System::GetInstance().GetPPCState().gpr[13] + tweak_player_offset));
