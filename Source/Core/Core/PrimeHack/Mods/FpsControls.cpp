@@ -572,6 +572,15 @@ void FpsControls::run_mod_mp2_gc(Region region) {
     return;
   }
 
+  LOOKUP_DYN(camera_state);
+  if (read32(camera_state) != 0)
+  {
+    vec3 fwd = cplayer_xf.fwd();
+    yaw = atan2f(fwd.y, fwd.x);
+    pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
+    return;
+  }
+
   LOOKUP(tweak_player_offset);
   const u32 tweak_player_address = read32(read32(Core::System::GetInstance().GetPPCState().gpr[13] + tweak_player_offset));
   if (mem_check(tweak_player_address)) {
@@ -587,13 +596,11 @@ void FpsControls::run_mod_mp2_gc(Region region) {
     }
   }
 
-  LOOKUP_DYN(ball_state);
-  if (read32(ball_state) == 0) {
-    calculate_pitchyaw_delta();
-    writef32(FpsControls::pitch, firstperson_pitch);
-    cplayer_xf.build_rotation(yaw);
-    cplayer_xf.write_to(*active_guard, player_xf);
-  }
+  calculate_pitchyaw_delta();
+  writef32(FpsControls::pitch, firstperson_pitch);
+  cplayer_xf.build_rotation(yaw);
+  cplayer_xf.write_to(*active_guard, player_xf);
+
 }
 
 void FpsControls::mp3_handle_lasso(u32 grapple_state_addr) {
