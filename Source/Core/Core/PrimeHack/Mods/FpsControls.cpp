@@ -397,6 +397,7 @@ void FpsControls::run_mod_mp1_gc(Region region) {
   if (read32(camera_state) != 0) {
     vec3 fwd = cplayer_xf.fwd();
     yaw = atan2f(fwd.y, fwd.x);
+    pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
     return;
   }
 
