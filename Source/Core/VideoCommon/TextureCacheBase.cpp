@@ -2310,9 +2310,18 @@ void TextureCacheBase::CopyRenderTargetToTexture(
   // We also linear filtering for both box filtering and downsampling higher resolutions to 1x.
   // TODO: This only produces perfect downsampling for 2x IR, other resolutions will need more
   //       complex down filtering to average all pixels and produce the correct result.
-  const bool linear_filter =
+  bool linear_filter =
       !is_depth_copy &&
       (scaleByHalf || g_framebuffer_manager->GetEFBScale() != 1 || y_scale > 1.0f);
+
+  // TEMP TEST: disable filtering for small copies
+  if (!is_xfb_copy && !is_depth_copy)
+  {
+    const int w = srcRect.GetWidth();
+    const int h = srcRect.GetHeight();
+    if (w <= 32 && h <= 32)
+    linear_filter = false;
+  }
 
   RcTcacheEntry entry;
   if (copy_to_vram)
