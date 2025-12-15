@@ -252,9 +252,10 @@ bool FramebufferManager::CreateEFBFramebuffer()
   // Create resolved textures if MSAA is on
   if (g_ActiveConfig.MultisamplingEnabled())
   {
-    u32 flags = 0;
-    if (!g_backend_info.bSupportsPartialMultisampleResolve)
-      flags |= AbstractTextureFlag_RenderTarget;
+    // We now always need the resolve color texture to be render-target capable,
+    // because the no-average MSAA fix requires rendering into it.
+    const u32 flags = AbstractTextureFlag_RenderTarget;
+
     m_efb_resolve_color_texture = g_gfx->CreateTexture(
         TextureConfig(efb_color_texture_config.width, efb_color_texture_config.height, 1,
                       efb_color_texture_config.layers, 1, efb_color_texture_config.format, flags,
@@ -263,13 +264,11 @@ bool FramebufferManager::CreateEFBFramebuffer()
     if (!m_efb_resolve_color_texture)
       return false;
 
-    if (!g_backend_info.bSupportsPartialMultisampleResolve)
-    {
-      m_efb_color_resolve_framebuffer =
-          g_gfx->CreateFramebuffer(m_efb_resolve_color_texture.get(), nullptr);
-      if (!m_efb_color_resolve_framebuffer)
-        return false;
-    }
+    // Always create a framebuffer for shader-based resolve paths.
+    m_efb_color_resolve_framebuffer =
+        g_gfx->CreateFramebuffer(m_efb_resolve_color_texture.get(), nullptr);
+    if (!m_efb_color_resolve_framebuffer)
+      return false;
   }
 
   // We also need one to convert the D24S8 to R32F if that is being used (Adreno).
@@ -351,6 +350,34 @@ AbstractTexture* FramebufferManager::ResolveEFBColorTexture(const MathUtil::Rect
   m_efb_resolve_color_texture->FinishedRendering();
   return m_efb_resolve_color_texture.get();
 }
+
+AbstractTexture*
+FramebufferManager::ResolveEFBColorTextureNoAverage(const MathUtil::Rectangle<int>& region)
+{
+  // Return the normal EFB texture if multisampling is off.
+  if (!IsEFBMultisampled())
+    return m_efb_color_texture.get();
+
+  // It's not valid to resolve an out-of-range rectangle.
+  MathUtil::Rectangle<int> clamped_region = region;
+  clamped_region.ClampUL(0, 0, GetEFBWidth(), GetEFBHeight());
+
+  // Skip partial mutlisample resolve
+  m_efb_color_texture->FinishedRendering();
+  g_gfx->BeginUtilityDrawing();
+  g_gfx->SetAndDiscardFramebuffer(m_efb_color_resolve_framebuffer.get());
+  g_gfx->SetPipeline(m_efb_color_resolve_noavg_pipeline.get());
+  g_gfx->SetTexture(0, m_efb_color_texture.get());
+  g_gfx->SetSamplerState(0, RenderState::GetPointSamplerState());
+  g_gfx->SetViewportAndScissor(clamped_region);
+  g_gfx->Draw(0, 3);
+  m_efb_resolve_color_texture->FinishedRendering();
+  g_gfx->EndUtilityDrawing();
+
+  m_efb_resolve_color_texture->FinishedRendering();
+  return m_efb_resolve_color_texture.get();
+}
+
 
 AbstractTexture* FramebufferManager::ResolveEFBDepthTexture(const MathUtil::Rectangle<int>& region,
                                                             bool force_r32f)
@@ -651,6 +678,18 @@ bool FramebufferManager::CompileReadbackPipelines()
     config.pixel_shader = depth_resolve_shader.get();
     m_efb_depth_resolve_pipeline = g_gfx->CreatePipeline(config);
     if (!m_efb_depth_resolve_pipeline)
+      return false;
+
+    config.framebuffer_state.color_texture_format = GetEFBColorFormat();
+    auto color_resolve_noavg_shader = g_gfx->CreateShaderFromSource(
+        ShaderStage::Pixel,FramebufferShaderGen::GenerateResolveColorNoAveragePixelShader(GetEFBSamples()),
+        "Color resolve (no average) pixel shader");
+    if (!color_resolve_noavg_shader)
+      return false;
+
+    config.pixel_shader = color_resolve_noavg_shader.get();
+    m_efb_color_resolve_noavg_pipeline = g_gfx->CreatePipeline(config);
+    if (!m_efb_color_resolve_noavg_pipeline)
       return false;
 
     if (!g_backend_info.bSupportsPartialMultisampleResolve)

@@ -2314,15 +2314,6 @@ void TextureCacheBase::CopyRenderTargetToTexture(
       !is_depth_copy &&
       (scaleByHalf || g_framebuffer_manager->GetEFBScale() != 1 || y_scale > 1.0f);
 
-  // TEMP TEST: disable filtering for small copies
-  if (!is_xfb_copy && !is_depth_copy)
-  {
-    const int w = srcRect.GetWidth();
-    const int h = srcRect.GetHeight();
-    if (w <= 32 && h <= 32)
-    linear_filter = false;
-  }
-
   RcTcacheEntry entry;
   if (copy_to_vram)
   {
@@ -2390,6 +2381,21 @@ void TextureCacheBase::CopyRenderTargetToTexture(
 
   if (copy_to_ram)
   {
+    // Disable filtering for certain copies that look like logical masks
+    bool ram_linear_filter = linear_filter;
+
+    const bool is_i8 = (baseFormat == TextureFormat::I8);
+    const bool is_ia8 = (baseFormat == TextureFormat::IA8);
+
+    const int w = srcRect.GetWidth();
+    const int h = srcRect.GetHeight();
+
+    const bool looks_like_mask = !is_depth_copy && !is_xfb_copy && (is_i8 || is_ia8) &&
+                                 (w <= 64 && h <= 64);  // tweak threshold
+
+    if (looks_like_mask)
+      ram_linear_filter = false;
+
     const std::array<u32, 3> coefficients = GetRAMCopyFilterCoefficients(filter_coefficients);
     PixelFormat srcFormat = bpmem.zcontrol.pixel_format;
     EFBCopyParams format(srcFormat, dstFormat, is_depth_copy, isIntensity,
@@ -2400,7 +2406,7 @@ void TextureCacheBase::CopyRenderTargetToTexture(
     if (staging_texture)
     {
       CopyEFB(staging_texture.get(), format, tex_w, bytes_per_row, num_blocks_y, dstStride, srcRect,
-              scaleByHalf, linear_filter, y_scale, gamma, clamp_top, clamp_bottom, coefficients);
+              scaleByHalf, ram_linear_filter, y_scale, gamma, clamp_top, clamp_bottom, coefficients);
 
       // We can't defer if there is no VRAM copy (since we need to update the hash).
       if (!copy_to_vram || !g_ActiveConfig.bDeferEFBCopies)
@@ -2936,9 +2942,20 @@ void TextureCacheBase::CopyEFB(AbstractStagingTexture* dst, const EFBCopyParams&
   const auto scaled_src_rect = g_framebuffer_manager->ConvertEFBRectangle(src_rect);
   const auto framebuffer_rect = g_gfx->ConvertFramebufferRectangle(
       scaled_src_rect, g_framebuffer_manager->GetEFBFramebuffer());
-  AbstractTexture* src_texture =
-      params.depth ? g_framebuffer_manager->ResolveEFBDepthTexture(framebuffer_rect) :
-                     g_framebuffer_manager->ResolveEFBColorTexture(framebuffer_rect);
+
+  AbstractTexture* src_texture = nullptr;
+  if (linear_filter)
+  {
+    src_texture =
+        params.depth ? g_framebuffer_manager->ResolveEFBDepthTexture(framebuffer_rect) :
+                       g_framebuffer_manager->ResolveEFBColorTexture(framebuffer_rect);
+  }
+  else
+  {
+    src_texture =
+        params.depth ? g_framebuffer_manager->ResolveEFBDepthTexture(framebuffer_rect) :
+                       g_framebuffer_manager->ResolveEFBColorTextureNoAverage(framebuffer_rect);
+  }
 
   src_texture->FinishedRendering();
   g_gfx->BeginUtilityDrawing();
