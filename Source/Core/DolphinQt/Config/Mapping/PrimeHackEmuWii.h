@@ -22,6 +22,7 @@ public:
   QRadioButton* m_radio_mouse;
   QRadioButton* m_radio_controller;
   QComboBox* m_morphball_combobox;
+  QComboBox* m_map_combobox;
 
 private:
   void LoadSettings() override;
@@ -30,6 +31,7 @@ private:
   void CreateMainLayout();
   void Connect(MappingWindow* window);
   void OnMorphControlSelectionChanged();
+  void OnMapControlSelectionChanged();
   void UpdateMorphProfileBackupFile();
   void PopulateMorphBallProfiles();
   void MappingWindowProfileSave();

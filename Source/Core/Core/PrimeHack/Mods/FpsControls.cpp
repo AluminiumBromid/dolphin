@@ -357,7 +357,7 @@ void FpsControls::run_mod_mp1(Region region) {
     }
 
     LOOKUP_DYN(menu_state);
-    swap_alt_profiles(read32(ball_state), read32(menu_state));
+    swap_alt_profiles(read32(ball_state), read32(menu_state), 0);
   }
 }
 
@@ -519,7 +519,8 @@ void FpsControls::run_mod_mp2(Region region) {
     write32(0, angular_momentum + 0x18);
 
     LOOKUP_DYN(menu_state);
-    swap_alt_profiles(read32(ball_state), read32(menu_state));
+    LOOKUP_DYN(screw_state);
+    swap_alt_profiles(read32(ball_state), read32(menu_state), read32(screw_state));
   }
 }
 
@@ -719,8 +720,9 @@ void FpsControls::run_mod_mp3(Game active_game, Region active_region) {
   LOOKUP(state_manager);
   LOOKUP_DYN(ball_state);
   LOOKUP_DYN(menu_state);
+  LOOKUP_DYN(screw_state);
 
-  swap_alt_profiles(read32(ball_state), read32(menu_state));
+  swap_alt_profiles(read32(ball_state), read32(menu_state), read32(screw_state));
 
   // Handles menu screen cursor
   LOOKUP(cursor_dlg_enabled);
@@ -847,7 +849,7 @@ void FpsControls::CheckBeamVisorSetting(Game game)
 }
 
 bool FpsControls::init_mod(Game game, Region region) {
-  swap_alt_profiles(0, 0);
+  swap_alt_profiles(0, 0, 0);
 
   switch (game) {
   case Game::MENU_PRIME_1:

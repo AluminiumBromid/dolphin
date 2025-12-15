@@ -26,6 +26,7 @@ public:
   QRadioButton* m_radio_controller;
   QPushButton* m_help_button;
   QComboBox* m_morphball_combobox;
+  QComboBox* m_map_combobox;
 
 private:
   void LoadSettings() override;
@@ -37,6 +38,7 @@ private:
 
   void OnDeviceSelected();
   void OnMorphControlSelectionChanged();
+  void OnMapControlSelectionChanged();
   void ConfigChanged();
   void MappingWindowProfileSave();
   void MappingWindowProfileLoad();

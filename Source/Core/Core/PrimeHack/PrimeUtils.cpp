@@ -160,25 +160,57 @@ int get_beam_switch(std::array<int, 4> const& beams) {
   return -1;
 }
 
-void swap_alt_profiles(u32 ball_state, u32 transition_state)
+void swap_alt_profiles(u32 ball_state, u32 transition_state, u32 screw_state)
 {
-  /* Ball State 1 - Morphed, Transition State 1 - Map */
-  if ((ball_state == 1 || ball_state == 2 || transition_state == 1) && !was_in_alternate)
-  {
-    std::string profile = GetProfiles().first;
+  /* Ball State 1 & Screw State 0 - Morphed, Transition State 1 - Map, Screw State 1 - Screw Attack */
+  const bool morphed = (ball_state == 1 || ball_state == 2 || ball_state == 3) && (screw_state == 0);
+  const bool in_map = (transition_state == 1);
 
-    if (!profile.empty() && (profile != std::string("Disabled"))) {
-      ChangeControllerProfileAlt(profile);
-    }
-    was_in_alternate = true;
-  }
-  else if ((ball_state == 0 && transition_state != 1) && was_in_alternate)
-  {
-    std::string profile = GetProfiles().second;
+  AltProfileState desired = AltProfileState::Normal;
 
-    ChangeControllerProfileAlt(profile);
-    was_in_alternate = false;
+  // Map has priority.
+  if (in_map)
+  {
+    desired = AltProfileState::Map;
   }
+  else if (morphed)
+  {
+    desired = AltProfileState::MorphBall;
+  }
+  else
+  {
+    desired = AltProfileState::Normal;
+  }
+
+  if (desired == s_alt_profile_state)
+    return;
+
+  PrimeHackProfiles profiles = GetProfiles();
+  const std::string* path = nullptr;
+
+  switch (desired)
+  {
+  case AltProfileState::Normal:
+    path = &profiles.main_profile;
+    break;
+
+  case AltProfileState::MorphBall:
+    // fall back to main if morphball profile not set
+    path =
+        !profiles.morphball_profile.empty() ? &profiles.morphball_profile : &profiles.main_profile;
+    break;
+
+  case AltProfileState::Map:
+    // fall back to main if map profile not set
+    path = !profiles.map_profile.empty() ? &profiles.map_profile : &profiles.main_profile;
+    break;
+  }
+
+  if (!path || path->empty())
+    return;
+
+  ChangeControllerProfileAlt(*path);
+  s_alt_profile_state = desired;
 }
 
 std::stringstream ss;
