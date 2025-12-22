@@ -78,43 +78,19 @@ void rotate_map_mp2(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job
   }
 }
 
-// Quaternion Addresses and write calls
-// 80DD50FC -> 8001e364 stfs f0, 0x00BC (r31)
-// 80DD5100 -> 8001e380 stw r4, 0x00C0 (r31)
-// 80DD5104 -> 8001e378 stw r3, 0x00C4 (r31)
-// 80DD5108 -> 8001e388 stw r4, 0x00C8 (r31)
 void rotate_map_mp3(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job)
 {
   MapController* const map_controller =
       static_cast<MapController*>(GetHackManager()->get_mod("map_controller"));
-
-  if (job == 8)
-  {
-    const u32 ret = LR(ppc_state);
-    INFO_LOG_FMT(VIDEO, "[MP3 Map] PAN OUTER caller RET = {:08x}", ret);
-
-    const u32 base = ret - 0x80;
-    for (u32 a = base; a <= ret + 0x20; a += 4)
-      INFO_LOG_FMT(VIDEO, "[MP3 Map] {:08x}: {:08x}", a, mmu.Read_U32(a));
-
-    // Replay original instruction at 0x8001E6B4: 0x806ddadc
-    // This is lwz r3, imm(r13) (uses SDA base in r13)
-    const s16 imm = static_cast<s16>(0xDADC);
-    ppc_state.gpr[3] = mmu.Read_U32(ppc_state.gpr[13] + static_cast<s32>(imm));
-    return;
-  }
-
-
-
-
-
-
-
-
-  if (job == 1)
-  {
+  if (job == 0) {
+    if (ppc_state.gpr[30] == 1 && mmu.Read_U32(ppc_state.gpr[29] + 0x1d4) == 0) {
+      map_controller->reset_rotation(map_controller->get_player_yaw(),
+                                     mmu.Read_F32(ppc_state.gpr[29] + 0xdc) * -(kPi / 180.f));
+    }
+    ppc_state.gpr[24] = mmu.Read_U32(ppc_state.gpr[29] + 0x1d8);
+  } else if (job == 1) {
     quat r = map_controller->compute_orientation();
-    write_quat(mmu, r, ppc_state.gpr[31] + 0xBC);
+    write_quat(mmu, r, ppc_state.gpr[29] + 0xbc);
   }
 }
 
@@ -340,25 +316,11 @@ void MapController::init_mod_mp3(Region region)
   }
   const u32 vmc_update_rotation = gen_vmcall(static_cast<u32>(map_controller_rotate), 0);
   const u32 vmc_rotate_map = gen_vmcall(static_cast<u32>(map_controller_rotate), 1);
-  const u32 vmc_pan_outer = gen_vmcall(static_cast<u32>(map_controller_rotate), 8);
-
-
-  if (region == Region::NTSC_U)
-  {
-    add_code_change(0x8002eadc, vmc_update_rotation);
-    add_code_change(0x800293d0, vmc_rotate_map);
-  }
-  else if (region == Region::PAL)
-  {
-    add_code_change(0x8001E6B4, vmc_pan_outer);
-    add_code_change(0x8001DFC4, 0x60000000);  // NEW: makes the whole rotate path run without direction
-    //add_code_change(0x8001E7F0, 0x60000000);      // allow pan without Z (PAL)
-    //add_code_change(0x8001E2EC, 0x60000000);      // your internal gate NOP (harmless to keep)
-    add_code_change(0x8001E364, vmc_rotate_map);  // your quat override
-
-    add_code_change(0x8001E378, 0x60000000);
-    add_code_change(0x8001E380, 0x60000000);
-    add_code_change(0x8001E388, 0x60000000);
+  if (region == Region::NTSC_U || region == Region::PAL) {
+    add_code_change(0x80021eb8, vmc_update_rotation);
+    add_code_change(0x8001D468, vmc_rotate_map);
+    add_code_change(0x8001E67C, 0x60000000);  // disable 'Z' gate
+    add_code_change(0x8001D430, 0x60000000);  // enable simultaneous panning and rotation
   }
 }
 
