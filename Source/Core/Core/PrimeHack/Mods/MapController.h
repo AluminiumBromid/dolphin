@@ -19,6 +19,8 @@ private:
   void init_mod_mp1(Region region);
   void init_mod_mp2_gc(Region region);
   void init_mod_mp2(Region region);
+  void init_mod_mp3(Region region);
+  void init_mod_mp3_sa(Region region);
 
   float frame_dx, frame_dy;
   float x_rot, y_rot;

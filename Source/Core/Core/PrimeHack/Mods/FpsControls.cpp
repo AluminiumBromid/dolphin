@@ -724,6 +724,11 @@ void FpsControls::run_mod_mp3(Game active_game, Region active_region) {
 
   swap_alt_profiles(read32(ball_state), read32(menu_state), read32(screw_state));
 
+  if (read32(menu_state) == 1) {
+    write32(0x3f800000, cursor + 0x9c);
+    write32(0x3f800000, cursor + 0x15c);
+    return;
+  }
   // Handles menu screen cursor
   LOOKUP(cursor_dlg_enabled);
   if (read8(cursor_dlg_enabled)) {
