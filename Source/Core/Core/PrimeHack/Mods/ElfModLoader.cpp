@@ -122,6 +122,7 @@ void ElfModLoader::run_mod(Game game, Region region) {
   switch (game) {
   case Game::PRIME_1_GCN:
   case Game::PRIME_2_GCN:
+  case Game::PRIME_3_STANDALONE:
     update_bat_regs();
 
     if (region != Region::NTSC_U) {
@@ -168,7 +169,6 @@ void ElfModLoader::run_mod(Game game, Region region) {
   }
   if (debug_output_addr != 0) {
     std::string debug_str = PowerPC::MMU::HostGetString(*active_guard, debug_output_addr);
-    DevInfo("Mod Output", "%s", debug_str.c_str());
   }
 
   if (load_state == LoadState::ACTIVE) {
@@ -179,7 +179,7 @@ void ElfModLoader::run_mod(Game game, Region region) {
 }
 
 bool ElfModLoader::init_mod(Game game, Region region) {
-  if ((game == Game::PRIME_1_GCN || game == Game::PRIME_2_GCN) && region == Region::NTSC_U) {
+  if ((game == Game::PRIME_1_GCN || game == Game::PRIME_2_GCN || game == Game::PRIME_3_STANDALONE) && region == Region::NTSC_U) {
     update_bat_regs();
   }
 
@@ -446,12 +446,13 @@ void ElfModLoader::parse_and_load_modfile(std::string const& path) {
 
   if (!parsed_elf || !parsed_callgate || !parsed_cleanup) {
     // TODO: log error to user (log & OSD)
+    ERROR_LOG_FMT(CORE, "ElfModLoader: MMD file missing required fields");
     return;
   }
 
   // ---------------------------- Load & resolve mod required info ---------------------------- //
   if (!load_elf(*parsed_elf)) {
-    // TODO: log error to user (log & OSD)
+    ERROR_LOG_FMT(CORE, "ElfModLoader: failed to load mod");
     return;
   }
 
@@ -471,7 +472,7 @@ void ElfModLoader::parse_and_load_modfile(std::string const& path) {
     std::get<2>(*parsed_callgate),
     std::get<3>(*parsed_callgate));
   if (!resolved) {
-    // TODO: log error to user
+    ERROR_LOG_FMT(CORE, "ElfModLoader: failed to resolve mod callgate symbols");
     return;
   }
 
@@ -480,7 +481,7 @@ void ElfModLoader::parse_and_load_modfile(std::string const& path) {
       cleanup.shutdown_signal = shutdown_signal_sym->address;
     }, symbolDB, std::get<0>(*parsed_cleanup), std::get<1>(*parsed_cleanup));
   if (!resolved) {
-    // TODO: log error to user
+    ERROR_LOG_FMT(CORE, "ElfModLoader: failed to resolve mod cleanup symbols");
     return;
   }
   cleanup.cleanup_blhook_point = std::get<2>(*parsed_cleanup);
