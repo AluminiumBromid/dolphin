@@ -8,10 +8,12 @@
 
 namespace prime {
 namespace {
+
 constexpr u32 kAgonWorldId = 0x42b935e4;
 constexpr u32 kTorvusWorldId = 0x3dfd2249;
 constexpr u32 kSanctuaryWorldId = 0x1baa96c2;
-}
+
+} // namespace
 
 void PortalSkipMP2::run_mod(Game game, Region region) {
   if (game != Game::PRIME_2 && game != Game::PRIME_2_GCN) {
@@ -139,16 +141,12 @@ bool PortalSkipMP2::init_mod(Game game, Region region) {
       add_code_change(0x801e695c, 0x48000114, "disable_portal_cutscene");
     } else if (region == Region::PAL) {
       add_code_change(0x801e8e74, 0x48000114, "disable_portal_cutscene");
-    } else { // region == Region::NTSC_J
-      add_code_change(0x801e5950, 0x48000114, "disable_portal_cutscene");
     }
   } else if (game == Game::PRIME_2_GCN) {
     if (region == Region::NTSC_U) {
       add_code_change(0x800b71ac, 0x48000120, "disable_portal_cutscene");
     } else if (region == Region::PAL) {
       add_code_change(0x800b7240, 0x48000120, "disable_portal_cutscene");
-    } else { // region == Region::NTSC_J
-      add_code_change(0x800b7f3c, 0x48000120, "disable_portal_cutscene");
     }
   } else {
     return true;
@@ -167,4 +165,4 @@ bool PortalSkipMP2::init_mod(Game game, Region region) {
   return true;
 }
 
-}
+} // namespace prime

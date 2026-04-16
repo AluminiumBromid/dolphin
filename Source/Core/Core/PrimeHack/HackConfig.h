@@ -12,6 +12,7 @@
 // Naming scheme will match dolphin as this place acts as an interface between the hack & dolphin proper
 namespace prime {
 void InitializeHack();
+void EnableDefaultMods();
 
 bool CheckBeamCtl(int beam_num);
 bool CheckVisorCtl(int visor_num);
@@ -61,7 +62,7 @@ float GetCursorSensitivity();
 void SetCursorSensitivity(float sensitivity);
 bool ScaleCursorSensitivity();
 void SetScaleCursorSensitivity(bool scale);
-float GetFov();
+float GetFov(Game game);
 bool InvertedY();
 void SetInvertedY(bool inverted);
 bool InvertedX();
@@ -90,18 +91,8 @@ double GetVerticalAxis();
 
 std::tuple<bool, bool> GetMenuOptions();
 
-HackManager *GetHackManager();
-AddressDB *GetAddressDB();
-EmuVariableManager *GetVariableManager();
-
-bool ModPending();
-void ClearPendingModfile();
-std::string GetPendingModfile();
-void SetPendingModfile(std::string const& path);
-
-bool ModSuspended();
-void SuspendMod();
-void ResumeMod();
+AddressDB* GetAddressDB();
+EmuVariableManager* GetVariableManager();
 
 void SetMotd(std::string const& motd);
 std::string GetMotd();

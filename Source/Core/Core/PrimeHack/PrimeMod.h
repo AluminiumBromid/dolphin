@@ -7,26 +7,26 @@
 #include <vector>
 
 #include "Core/Core.h"
-#include "Core/PowerPC/PowerPC.h"
+
+#define GEN_NAME(cname) std::string_view mod_name() const override { return #cname; }
 
 namespace prime {
+
 struct CodeChange {
   uint32_t address, var;
   CodeChange() : CodeChange(0, 0) {}
-  CodeChange(uint32_t address, uint32_t var) : address(address), var(var) {}
+  CodeChange(uint32_t a, uint32_t v) : address(a), var(v) {}
 };
 
 enum class Game : int {
   INVALID_GAME = -1,
   MENU = 0,
-  /* New Play Controls only */
-  MENU_PRIME_1 = 1,
-  MENU_PRIME_2 = 2,
-  /* */
+  // Wii Games
   PRIME_1 = 3,
   PRIME_2 = 4,
   PRIME_3 = 5,
   PRIME_3_STANDALONE = 6,
+  // GC Games
   PRIME_1_GCN = 7,
   PRIME_2_GCN = 8,
   PRIME_1_GCN_R1 = 9,
@@ -38,15 +38,34 @@ enum class Region : int {
   INVALID_REGION = -1,
   NTSC_U = 0,
   PAL = 1,
-  NTSC_J = 2,
-  MAX_VAL = NTSC_J,
+  MAX_VAL = PAL,
 };
+
+constexpr std::string_view game_str(Game g) {
+  switch (g) {
+    case Game::PRIME_1: return "Metroid Prime: Trilogy (MP1)";
+    case Game::PRIME_2: return "Metroid Prime: Trilogy (MP2)";
+    case Game::PRIME_3: return "Metroid Prime: Trilogy (MP3)";
+    case Game::PRIME_1_GCN: return "Metroid Prime Rev 0";
+    case Game::PRIME_1_GCN_R1: return "Metroid Prime Rev 1";
+    case Game::PRIME_1_GCN_R2: return "Metroid Prime Rev 2";
+    case Game::PRIME_2_GCN: return "Metroid Prime 2: Echoes";
+    case Game::PRIME_3_STANDALONE: return "Metroid Prime 3: Corruption";
+    default: return "Invalid";
+  }
+}
+
+constexpr std::string_view region_str(Region r) {
+  switch (r) {
+    case Region::NTSC_U: return "NTSC-U";
+    case Region::PAL: return "PAL";
+    default: return "Invalid";
+  }
+}
 
 enum class ModState {
   // not running, no active instruction changes
   DISABLED,
-  // running, no active instruction changes
-  CODE_DISABLED,
   // running, active instruction changes
   ENABLED,
 };
@@ -66,16 +85,25 @@ public:
   virtual bool init_mod(Game game, Region region) = 0;
   virtual void on_state_change(ModState old_state) = 0;
   virtual void on_reset() {}
+  virtual std::string_view mod_name() const = 0;
 
   virtual bool should_apply_changes() const;
+
+  // Used for RA's Hardcore mode
+  virtual bool is_cheat() const = 0;
+
   void apply_instruction_changes(bool invalidate = true);
+  void apply_original_instructions(bool invalidate = true);
   // Gets the corresponding list of code changes to apply per-frame
   const std::vector<CodeChange>& get_changes_to_apply() const;
   void add_code_change(u32 addr, u32 code, std::string_view group = "");
+  void add_asm_patch(std::string_view patch, std::string_view group = "");
+  void add_module_code_change(u32 reladdr, u32 code, std::string_view module = "");
   void set_code_change(u32 address, u32 var);
   void update_original_instructions();
   std::vector<CodeChange>& get_code_changes() { return code_changes; }
   std::vector<CodeChange>& get_original_instructions() { return original_instructions; }
+  std::vector<CodeChange> const* get_pending_dyna_changes(std::string_view mod_name);
 
   bool has_saved_instructions() const { return !original_instructions.empty(); }
   bool is_initialized() const { return initialized; }
@@ -85,18 +113,21 @@ public:
   ModState mod_state() const { return state; }
   void set_state(ModState new_state);
   void set_state_no_notify(ModState new_state);
-  void set_code_group_state(const std::string& group_name, ModState new_state);
+  void set_code_group_state(std::string_view group_name, ModState new_state);
 
   void set_temporary_cpu_guard(Core::CPUThreadGuard const* guard) { active_guard = guard; }
 
+  void disable_patches() { patches_disabled = true; }
+  void enable_patches() { patches_disabled = false; }
+  void overlay_disable();
+  void lift_overlay();
+
   static void set_address_database(const AddressDB* db_ptr) { addr_db = db_ptr; }
-  static void set_hack_manager(const HackManager* mgr_ptr) { hack_mgr = mgr_ptr; }
 
 protected:
   mutable Core::CPUThreadGuard const* active_guard = nullptr;
 
   inline static const AddressDB* addr_db = nullptr;
-  inline static const HackManager* hack_mgr = nullptr;
 
   static u32 lookup_address(std::string_view name);
   u32 lookup_dynamic_address(std::string_view name) const;
@@ -124,8 +155,11 @@ private:
   std::vector<CodeChange> original_instructions;
   std::vector<CodeChange> code_changes;
   std::vector<u32> pending_change_backups;
-  std::map<std::string, group_change> code_groups;
+  std::map<std::string, group_change, std::less<>> code_groups;
+  std::map<std::string, std::vector<CodeChange>, std::less<>> pending_dyna_changes;
   ModState state = ModState::DISABLED;
+  std::optional<ModState> stashed_state = std::nullopt;
+  bool patches_disabled = false;
 
   std::vector<CodeChange> current_active_changes;
 };
@@ -134,4 +168,5 @@ private:
 #define LOOKUP(name) const u32 name = lookup_address(#name)
 // Lookup addressdb dynamics by "name", bind to name
 #define LOOKUP_DYN(name) const u32 name = lookup_dynamic_address(#name)
-}
+
+} // namespace prime

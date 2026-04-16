@@ -5,11 +5,14 @@
 
 namespace prime {
 
+// MOD PURPOSE: Noclip, you know what this is
 class Noclip : public PrimeMod {
 public:
   void run_mod(Game game, Region region) override;
   bool init_mod(Game game, Region region) override;
   void on_state_change(ModState old_state) override;
+  bool is_cheat() const override { return true; }
+  GEN_NAME(Noclip)
 
 private:
   vec3 get_movement_vec(u32 camera_tf_addr);
@@ -38,4 +41,4 @@ private:
   bool had_control = true;
 };
 
-}
+} // namespace prime

@@ -130,6 +130,10 @@ void CheatsManager::CreateWidgets()
 
   int tab_index = 0;
 
+  m_primehack_cheats= new PrimeCheatsWidget(m_game_id, false);
+  tab_index = m_tab_widget->addTab(m_primehack_cheats, tr("PrimeHack"));
+  m_tab_widget->setTabUnclosable(tab_index);
+
   m_ar_code = new ARCodeWidget(m_game_id, m_revision, false);
   tab_index = m_tab_widget->addTab(GetWrappedWidget(m_ar_code), tr("AR Code"));
   m_tab_widget->setTabUnclosable(tab_index);
@@ -141,10 +145,6 @@ void CheatsManager::CreateWidgets()
   m_cheat_search_new = new CheatSearchFactoryWidget();
   tab_index =
       m_tab_widget->addTab(GetWrappedWidget(m_cheat_search_new), tr("Start New Cheat Search"));
-  m_tab_widget->setTabUnclosable(tab_index);
-  
-  m_primehack_cheats= new PrimeCheatsWidget();
-  tab_index = m_tab_widget->addTab(m_primehack_cheats, tr("PrimeHack"));
   m_tab_widget->setTabUnclosable(tab_index);
 
   auto* layout = new QVBoxLayout;
@@ -185,5 +185,8 @@ void CheatsManager::ConnectWidgets()
           &CheatsManager::OpenAchievementSettings);
   connect(m_gecko_code, &GeckoCodeWidget::OpenAchievementSettings, this,
           &CheatsManager::OpenAchievementSettings);
+  connect(m_primehack_cheats, &PrimeCheatsWidget::OpenAchievementSettings, this,
+          &CheatsManager::OpenAchievementSettings);
 #endif  // USE_RETRO_ACHIEVEMENTS
+  connect(m_primehack_cheats, &PrimeCheatsWidget::OpenGeneralSettings, this, &CheatsManager::OpenGeneralSettings);
 }

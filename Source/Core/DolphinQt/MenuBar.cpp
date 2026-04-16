@@ -48,11 +48,12 @@
 #include "Core/System.h"
 #include "Core/WiiUtils.h"
 
-#include "Core/PrimeHack/HackConfig.h"
+#include "Core/PrimeHack/ElfModLoaderInterface.h"
 
 #include "DiscIO/Enums.h"
 #include "DiscIO/NANDImporter.h"
 
+#include "DolphinQt/ConfigureModWindow.h"
 #include "DolphinQt/Host.h"
 #include "DolphinQt/NANDRepairDialog.h"
 #include "DolphinQt/QtUtils/DolphinFileDialog.h"
@@ -87,6 +88,7 @@ MenuBar::MenuBar(QWidget* parent) : QMenuBar(parent)
   s_menu_bar = this;
 
   AddFileMenu();
+  AddPrimeHackMenu();
   AddEmulationMenu();
   AddMovieMenu();
   AddOptionsMenu();
@@ -95,8 +97,6 @@ MenuBar::MenuBar(QWidget* parent) : QMenuBar(parent)
   AddJITMenu();
   AddSymbolsMenu();
   AddHelpMenu();
-  AddModLoaderMenu();
-  AddPrimeHackMenu();
 
   connect(&Settings::Instance(), &Settings::EmulationStateChanged, this,
           [=, this](Core::State state) { OnEmulationStateChanged(state); });
@@ -698,37 +698,120 @@ void MenuBar::AddHelpMenu()
   help_menu->addAction(tr("&About"), this, &MenuBar::ShowAboutDialog);
 }
 
-void MenuBar::AddModLoaderMenu() {
-  QMenu* mod_loader_menu = addMenu(tr("Mod &Loader"));
+void MenuBar::RebuildPrimeModMenus()
+{
+  m_enabled_mods->clear();
+  m_mod_settings->clear();
 
-  QAction* load_mod = mod_loader_menu->addAction(tr("Load Mod"));
-  connect(load_mod, &QAction::triggered, this, [this]() {
-    QString path = QFileDialog::getOpenFileName(this, tr("Select MMD file to load"), QString(),
-                                                tr("MMD file (*.mmd);; All Files (*)"));
-    prime::SetPendingModfile(path.toStdString());
-  });
+  prime::RefreshMods();
+  auto const& avail_mods = prime::GetAvailableMods();
+  for (auto const& pack : avail_mods)
+  {
+    std::string packname = pack.name;
+    auto* en_action = m_enabled_mods->addAction(QString::fromStdString(pack.name), [packname] {
+      prime::ModPack* modpack = prime::GetPack(packname);
+      ASSERT(modpack != nullptr);
 
-  mod_loader_menu->addAction(tr("CVars"), this, &MenuBar::OpenCVarsMenu);
-  QAction* suspend = mod_loader_menu->addAction(tr("Suspend Mod"));
-  suspend->setCheckable(true);
-  suspend->setChecked(false);
-  connect(suspend, &QAction::toggled, [](bool value) {
-    if (value) {
-      prime::SuspendMod();
-    } else {
-      prime::ResumeMod();
-    }
-  });
+      modpack->set_mod_enabled(!modpack->is_mod_enabled());
+    });
+    en_action->setCheckable(true);
+    en_action->setChecked(pack.is_mod_enabled());
+
+    m_mod_settings->addAction(QString::fromStdString(pack.name), [this, packname] {
+      // To avoid weird state issues, just disallow touching this UI when config opened
+      m_modloader_enabled->setEnabled(false);
+      m_import_mod->setEnabled(false);
+
+      auto config_win = new ConfigureModWindow(packname, this);
+      config_win->show();
+      config_win->raise();
+      config_win->activateWindow();
+
+      // Restore them to the correct state
+      m_modloader_enabled->setEnabled(!m_emulation_active);
+      m_import_mod->setEnabled(!m_emulation_active && Config::Get(Config::PRIMEHACK_MODLOADER_ENABLED));
+    });
+  }
 }
 
-void MenuBar::AddPrimeHackMenu() {
-  QMenu* primehack_menu = addMenu(tr("PrimeHack"));
+void MenuBar::AddPrimeHackMenu()
+{
+  auto* const primehack_menu{new QtUtils::NonAutodismissibleMenu(tr("&PrimeHack"), this)};
+  addMenu(primehack_menu);
 
-  primehack_menu->addAction(tr("&Discord"), this,
-    []() { QDesktopServices::openUrl(QUrl(QStringLiteral("https://discord.gg/ZbeKZxDb6W"))); });
+#ifdef USE_RETRO_ACHIEVEMENTS
+    bool hardcore_on = AchievementManager::GetInstance().IsHardcoreModeActive();
+#else
+    bool hardcore_on = false;
+#endif
+  const bool start_enabled = Config::Get(Config::PRIMEHACK_MODLOADER_ENABLED) && !hardcore_on;
+  m_modloader_enabled = primehack_menu->addAction(tr("Enable Mod Loader"));
+  m_modloader_enabled->setCheckable(true);
+  m_modloader_enabled->setChecked(start_enabled);
+  connect(m_modloader_enabled, &QAction::toggled, [this](bool value) {
+    Config::SetBaseOrCurrent(Config::PRIMEHACK_MODLOADER_ENABLED, value);
+    m_import_mod->setEnabled(value && !m_emulation_active);
+    m_enabled_mods->setEnabled(value);
+    m_mod_settings->setEnabled(value);
+    emit ModLoaderToggled(value);
+  });
 
-  primehack_menu->addAction(tr("&Wiki / Help"), this,
-    []() { QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/shiiion/dolphin/wiki"))); });
+  m_import_mod = primehack_menu->addAction(tr("Import Mod"), [this] {
+    auto zip_path = DolphinFileDialog::getOpenFileName(this, tr("Select Mod Pack to Import"),
+                                                       QString(), tr("ZIP files (*.zip)"));
+    if (zip_path.isEmpty())
+    {
+      return;
+    }
+    auto err = prime::ImportNewMod(zip_path.toStdString());
+    if (err.empty())
+    {
+      ModalMessageBox::information(
+        this, tr("Success"), tr("Successfully imported \"%1\"").arg(zip_path),
+        QMessageBox::Ok | QMessageBox::Ignore);
+      RebuildPrimeModMenus();
+    }
+    else
+    {
+      ModalMessageBox::critical(this, tr("Error"), QString::fromStdString(err));
+    }
+  });
+  m_import_mod->setEnabled(start_enabled);
+
+  m_enabled_mods = new QtUtils::NonAutodismissibleMenu(tr("Enabled Mods"));
+  primehack_menu->addMenu(m_enabled_mods);
+  m_enabled_mods->setEnabled(start_enabled);
+
+  m_mod_settings = primehack_menu->addMenu(tr("Configure Mods"));
+  m_mod_settings->setEnabled(start_enabled);
+
+  RebuildPrimeModMenus();
+
+  primehack_menu->addSeparator();
+
+  QMenu* help_menu = primehack_menu->addMenu(tr("Help"));
+  help_menu->addAction(tr("&Wiki"), [] {
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/shiiion/dolphin/wiki")));
+  });
+  help_menu->addAction(tr("&Discord"), [] {
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://discord.gg/ZbeKZxDb6W")));
+  });
+
+  connect(&Settings::Instance(), &Settings::EmulationStateChanged, this, [this](Core::State state) {
+#ifdef USE_RETRO_ACHIEVEMENTS
+    bool hardcore = AchievementManager::GetInstance().IsHardcoreModeActive();
+#else
+    bool hardcore = false;
+#endif
+    const bool loader_enabled = Config::Get(Config::PRIMEHACK_MODLOADER_ENABLED);
+    m_emulation_active = state == Core::State::Starting || state == Core::State::Running ||
+                         state == Core::State::Paused;
+    m_modloader_enabled->setEnabled(!m_emulation_active && !hardcore);
+    // Import button is disabled both by starting emulation as well as the modloader enablement
+    m_import_mod->setEnabled(!m_emulation_active && loader_enabled && !hardcore);
+    m_enabled_mods->setEnabled(loader_enabled && !hardcore);
+    m_mod_settings->setEnabled(loader_enabled && !hardcore);
+  });
 }
 
 void MenuBar::AddGameListTypeSection(QMenu* view_menu)
@@ -768,7 +851,8 @@ void MenuBar::AddListColumnsMenu(QMenu* view_menu)
       {tr("Block Size"), &Config::MAIN_GAMELIST_COLUMN_BLOCK_SIZE},
       {tr("Compression"), &Config::MAIN_GAMELIST_COLUMN_COMPRESSION},
       {tr("Time Played"), &Config::MAIN_GAMELIST_COLUMN_TIME_PLAYED},
-      {tr("Tags"), &Config::MAIN_GAMELIST_COLUMN_TAGS}};
+      {tr("Tags"), &Config::MAIN_GAMELIST_COLUMN_TAGS},
+      {tr("PrimeHack Support"), &Config::MAIN_GAMELIST_COLUMN_PHSUPPORT}};
 
   QActionGroup* column_group = new QActionGroup(this);
   m_cols_menu = new QtUtils::NonAutodismissibleMenu(tr("List Columns"), view_menu);

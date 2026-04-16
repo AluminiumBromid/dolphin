@@ -7,6 +7,7 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QtGlobal>
+#include <qstring.h>
 
 #include "Common/Version.h"
 
@@ -14,23 +15,22 @@
 
 AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent)
 {
-  setWindowTitle(tr("About Dolphin"));
+  setWindowTitle(tr("About"));
 
-  const QString prime_ver = QString::fromStdString(Common::GetScmRevStr());
+  const QString fork_name = QStringLiteral(EMULATOR_NAME);
+  const QString prime_hack_ver = QStringLiteral(EMULATOR_VERSION);
   const QString text =
     QStringLiteral(R"(
-<p style='font-size:38pt; font-weight:400;'>PrimeHack</p>
-
-<p style='font-size:18pt;'>%VERSION_STRING%</p>
+<p style='font-size:38pt; font-weight:400;'>%FORKNAME_STRING% %PRIMEVER_STRING%</p>
+<p style='font-size:18pt;'>Dolphin v%VERSION_STRING%</p>
 
 <p style='font-size: small;'>
-%BRANCH%<br>
 %REVISION%<br><br>
 %QT_VERSION%
 </p>
 
 <p>
-%CHECK_FOR_UPDATES%: <a href='https://github.com/shiiion/dolphin/releases'>github.com/shiiion/dolphin/releases</a>
+<a href='https://github.com/shiiion/dolphin/releases/latest'>%CHECK_FOR_UPDATES%</a>
 </p>
 
 <p>
@@ -44,13 +44,16 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent)
 <p>
 <a href='https://github.com/shiiion/dolphin/blob/master/license.txt'>%LICENSE%</a> |
 <a href='https://github.com/shiiion/dolphin/graphs/contributors'>%AUTHORS%</a> |
-<a href='https://github.com/shiiion/dolphin/wiki'>%SUPPORT%</a>
+<a href='https://github.com/shiiion/dolphin/wiki'>%SUPPORT%</a> |
+<a href='https://discord.gg/Gc2HcPH'>%DISCORD%</a>
 )")
+          .replace(QStringLiteral("%FORKNAME_STRING%"), fork_name)
+          .replace(QStringLiteral("%PRIMEVER_STRING%"), prime_hack_ver)
           .replace(QStringLiteral("%VERSION_STRING%"),
                    QString::fromUtf8(Common::GetScmDescStr().c_str()))
           .replace(QStringLiteral("%BRANCH%"),
                    // i18n: "Branch" means the version control term, not a literal tree branch.
-                   tr("Version: %1").arg(prime_ver))
+                   tr("Version: %1").arg(fork_name))
           .replace(QStringLiteral("%REVISION%"),
                    tr("Revision: %1").arg(QString::fromUtf8(Common::GetScmRevGitStr().c_str())))
           .replace(QStringLiteral("%QT_VERSION%"),
@@ -61,12 +64,13 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent)
                    // is "free" as in "freedom" - it refers to certain properties of the
                    // software's license, not the software's price. (It is true that Dolphin
                    // can be downloaded at no cost, but that's not what this message says.)
-                   tr("PrimeHack is a fork of Dolphin to bring traditional FPS controls and settings to the Metroid Prime series."))
+                   tr("PrimeHack is a fork of Dolphin that brings traditional FPS controls and other features to the Metroid Prime series."))
           .replace(QStringLiteral("%GAMES_YOU_OWN%"),
                    tr("This software should not be used to play games you do not legally own."))
           .replace(QStringLiteral("%LICENSE%"), tr("License"))
           .replace(QStringLiteral("%AUTHORS%"), tr("Authors"))
-          .replace(QStringLiteral("%SUPPORT%"), tr("Support"));
+          .replace(QStringLiteral("%SUPPORT%"), tr("Wiki"))
+          .replace(QStringLiteral("%DISCORD%"), tr("Discord"));
 
   QLabel* text_label = new QLabel(text);
   text_label->setTextInteractionFlags(Qt::TextBrowserInteraction);
@@ -79,7 +83,7 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent)
       // in your translation, please use the type of curly quotes that's appropriate for
       // your language. If you aren't sure which type is appropriate, see
       // https://en.wikipedia.org/wiki/Quotation_mark#Specific_language_features
-      tr("\u00A9 2003-2015+ Dolphin Team. PrimeHack Team. \u201cGameCube\u201d and \u201cWii\u201d are "
+      tr("\u00A9 2003-2015+ Dolphin Team. PrimeHack Team. \u201cMetroid\u201d and \u201cGameCube\u201d and \u201cWii\u201d are "
         "trademarks of Nintendo. Dolphin & PrimeHack are not affiliated with Nintendo in any way.")));
 
   QLabel* logo = new QLabel();

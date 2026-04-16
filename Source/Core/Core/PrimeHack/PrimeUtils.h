@@ -6,16 +6,19 @@
 #include <cmath>
 #include <sstream>
 
+#include "Core/PowerPC/MMU.h"
 #include "Core/PowerPC/PowerPC.h"
 #include "Core/PrimeHack/HackConfig.h"
 #include "InputCommon/GenericMouse.h"
 #include "VideoCommon/Present.h"
 #include "VideoCommon/VideoCommon.h"
+#include "UICommon/GameFile.h"
 
 extern std::string info_str;
 
 namespace prime {
 constexpr u32 kBranchOffsetMask = 0x3fffffc;
+constexpr u32 kBctrlEncoding = 0x4e800421;
 constexpr u32 gen_branch(const u32 src, const u32 dst) { return 0x48000000 | (((dst) - (src)) & kBranchOffsetMask); }
 constexpr u32 gen_branch_link(const u32 src, const u32 dst) { return gen_branch(src, dst) | (u32{1}); }
 constexpr u32 gen_lis(const u32 dst_gpr, const u16 val) {
@@ -36,6 +39,7 @@ constexpr u32 gen_vmcall(const u32 call_idx, const u32 param) {
 }
 
 constexpr float kTurnrateRatio = 0.00498665500569808449206349206349f;
+constexpr float kPi = 3.141592654f;
 
 int get_beam_switch(std::array<int, 4> const& beams);
 std::tuple<int, int> get_visor_switch(std::array<std::tuple<int, int>, 4> const& visors, bool combat_visor);
@@ -51,12 +55,6 @@ void set_cursor_pos(float x, float y);
 
 void swap_alt_profiles(u32 ball_state, u32 transition_state, u32 screw_state);
 
-void DevInfo(const char* name, const char* format, ...);
-void DevInfoMatrix(const char* name, const Transform& t);
-
-std::string GetDevInfo();
-void ClrDevInfo();
-
 // Borrowed from DolphinQt MathUtil.h
 template <typename T, typename F>
 constexpr auto Lerp(const T& x, const T& y, const F& a) -> decltype(x + (y - x) * a)
@@ -69,5 +67,43 @@ constexpr auto AntiLerp(const T& x, const T& y, const F& a) -> decltype((a - x) 
 {
   return (a - x) / (y - x);
 }
+
+struct HostMem {
+  HostMem(Core::CPUThreadGuard const& g) : _guard(g) {}
+  Core::CPUThreadGuard const& _guard;
+
+  template <typename T>
+  T Read(u32 addr) {
+    return PowerPC::MMU::HostRead<T>(_guard, addr);
+  }
+
+  template <typename T>
+  void Write(T var, u32 addr) {
+    PowerPC::MMU::HostWrite<T>(_guard, var, addr);
+  }
+};
+
+template <typename Mem>
+std::string readin_str(Mem&& mem, u32 str_ptr) {
+  std::ostringstream key_readin;
+
+  for (char c = mem.template Read<u8>(str_ptr); c; c = mem.template Read<u8>(++str_ptr)) {
+    key_readin << c;
+  }
+  return key_readin.str();
+}
+
+enum class GameSupportLevel : int
+{
+  FullySupported,
+  Unsupported,
+  LimitedSupport,
+  QuestionableSupport,
+  NotApplicable,
+};
+
+std::string_view GetIconNameForSupportLevel(GameSupportLevel supp_level);
+GameSupportLevel GetGameSupportLevel(UICommon::GameFile const& file);
+std::string_view SupportLevelToolTip(GameSupportLevel supp_level);
 
 }  // namespace prime

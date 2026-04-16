@@ -7,9 +7,8 @@
 #include "Core/System.h"
 
 namespace prime {
-
-constexpr float kPi = 3.141592654f;
 namespace {
+
 void write_quat(PowerPC::MMU& mmu, quat const& q, u32 addr) {
   mmu.Write_F32(q.x, addr + 0x0);
   mmu.Write_F32(q.y, addr + 0x4);
@@ -18,21 +17,21 @@ void write_quat(PowerPC::MMU& mmu, quat const& q, u32 addr) {
 }
 
 void rotate_map_mp1_gc(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job) {
-  MapController* const map_controller = static_cast<MapController*>(GetHackManager()->get_mod("map_controller"));
+  MapController* const map_controller = GetMod<MapController>();
   if (job == 0) {  // Executed during Automapper transitions
     // Only reset our rotations if transitioning to normal map from minimap
-    if (ppc_state.gpr[30] == 1 && mmu.Read_U32(ppc_state.gpr[28] + 0x1bc) == 0) {
+    if (ppc_state.gpr[30] == 1 && mmu.Read<u32>(ppc_state.gpr[28] + 0x1bc) == 0) {
       map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[28] + 0xc4) * -(kPi / 180.f));
     }
-    ppc_state.gpr[0] = mmu.Read_U32(ppc_state.gpr[28] + 0x1c0);
+    ppc_state.gpr[0] = mmu.Read<u32>(ppc_state.gpr[28] + 0x1c0);
   } else if (job == 1) {  // Hooks ProcessMapRotateInput
     quat r = map_controller->compute_orientation();
     write_quat(mmu, r, ppc_state.gpr[29] + 0xb0);
   } else if (job == 2) {  // Because PAL just had to be different? Sure whatever
-    if (ppc_state.gpr[27] == 1 && mmu.Read_U32(ppc_state.gpr[28] + 0x1d4) == 0) {
+    if (ppc_state.gpr[27] == 1 && mmu.Read<u32>(ppc_state.gpr[28] + 0x1d4) == 0) {
       map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[28] + 0xdc) * -(kPi / 180.f));
     }
-    ppc_state.gpr[0] = mmu.Read_U32(ppc_state.gpr[28] + 0x1d8);
+    ppc_state.gpr[0] = mmu.Read<u32>(ppc_state.gpr[28] + 0x1d8);
   } else if (job == 3) {
     quat r = map_controller->compute_orientation();
     write_quat(mmu, r, ppc_state.gpr[29] + 0xc8);
@@ -40,12 +39,12 @@ void rotate_map_mp1_gc(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 
 }
 
 void rotate_map_mp1(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job) {
-  MapController* const map_controller = static_cast<MapController*>(GetHackManager()->get_mod("map_controller"));
+  MapController* const map_controller = GetMod<MapController>();
   if (job == 0) {
-    if (ppc_state.gpr[31] == 1 && mmu.Read_U32(ppc_state.gpr[29] + 0x1d0) == 0) {
+    if (ppc_state.gpr[31] == 1 && mmu.Read<u32>(ppc_state.gpr[29] + 0x1d0) == 0) {
       map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[29] + 0xd8) * -(kPi / 180.f));
     }
-    ppc_state.gpr[24] = mmu.Read_U32(ppc_state.gpr[29] + 0x1d4);
+    ppc_state.gpr[24] = mmu.Read<u32>(ppc_state.gpr[29] + 0x1d4);
   } else if (job == 1) {
     quat r = map_controller->compute_orientation();
     write_quat(mmu, r, ppc_state.gpr[29] + 0xc4);
@@ -53,12 +52,12 @@ void rotate_map_mp1(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job
 }
 
 void rotate_map_mp2_gc(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job) {
-  MapController* const map_controller = static_cast<MapController*>(GetHackManager()->get_mod("map_controller"));
+  MapController* const map_controller = GetMod<MapController>();
   if (job == 0) {
-    if (ppc_state.gpr[27] == 1 && mmu.Read_U32(ppc_state.gpr[28] + 0x200) == 0) {
+    if (ppc_state.gpr[27] == 1 && mmu.Read<u32>(ppc_state.gpr[28] + 0x200) == 0) {
       map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[28] + 0x108) * -(kPi / 180.f));
     }
-    ppc_state.gpr[0] = mmu.Read_U32(ppc_state.gpr[28] + 0x204);
+    ppc_state.gpr[0] = mmu.Read<u32>(ppc_state.gpr[28] + 0x204);
   } else if (job == 1) {  // Hooks ProcessMapRotateInput
     quat r = map_controller->compute_orientation();
     write_quat(mmu, r, ppc_state.gpr[29] + 0xf4);
@@ -66,18 +65,19 @@ void rotate_map_mp2_gc(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 
 }
 
 void rotate_map_mp2(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job) {
-  MapController* const map_controller = static_cast<MapController*>(GetHackManager()->get_mod("map_controller"));
+  MapController* const map_controller = GetMod<MapController>();
   if (job == 0) {
-    if (ppc_state.gpr[31] == 1 && mmu.Read_U32(ppc_state.gpr[29] + 0x1f8) == 0) {
+    if (ppc_state.gpr[31] == 1 && mmu.Read<u32>(ppc_state.gpr[29] + 0x1f8) == 0) {
       map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[29] + 0x100) * -(kPi / 180.f));
     }
-    ppc_state.gpr[24] = mmu.Read_U32(ppc_state.gpr[29] + 0x1fc);
+    ppc_state.gpr[24] = mmu.Read<u32>(ppc_state.gpr[29] + 0x1fc);
   } else if (job == 1) {  // Hooks ProcessMapRotateInput
     quat r = map_controller->compute_orientation();
     write_quat(mmu, r, ppc_state.gpr[29] + 0xec);
   }
 }
-}
+
+} // namespace
 
 float MapController::get_player_yaw() const {
   // HACK: This is called by a vmcall, so the thread guard will be invalid
@@ -107,8 +107,8 @@ float MapController::get_player_yaw() const {
     return 0.f;
   }
   Transform xf;
-  LOOKUP(transform_offset);
-  xf.read_from(*active_guard, camera + transform_offset);
+  LOOKUP(xf_offset);
+  xf.read_from(*active_guard, camera + xf_offset);
   vec3 planar_fwd = vec3(0, 0, 1).cross(xf.right());
   active_guard = nullptr;
   return kPi + atan2(planar_fwd.x, planar_fwd.y);
@@ -134,22 +134,22 @@ quat MapController::compute_orientation() {
 
 bool MapController::init_mod(Game game, Region region) {
   switch (game) {
-  case Game::PRIME_1:
-    init_mod_mp1(region);
-    break;
-  case Game::PRIME_1_GCN:
-  case Game::PRIME_1_GCN_R1:
-  case Game::PRIME_1_GCN_R2:
-    init_mod_mp1_gc(game, region);
-    break;
-  case Game::PRIME_2:
-    init_mod_mp2(region);
-    break;
-  case Game::PRIME_2_GCN:
-    init_mod_mp2_gc(region);
-    break;
-  default:
-    break;
+    case Game::PRIME_1:
+      init_mod_mp1(region);
+      break;
+    case Game::PRIME_1_GCN:
+    case Game::PRIME_1_GCN_R1:
+    case Game::PRIME_1_GCN_R2:
+      init_mod_mp1_gc(game, region);
+      break;
+    case Game::PRIME_2:
+      init_mod_mp2(region);
+      break;
+    case Game::PRIME_2_GCN:
+      init_mod_mp2_gc(region);
+      break;
+    default:
+      break;
   }
   return true;
 }
@@ -266,4 +266,4 @@ void MapController::run_mod(Game game, Region region) {
   frame_dy = GetVerticalAxis();
 }
 
-}
+} // namespace prime

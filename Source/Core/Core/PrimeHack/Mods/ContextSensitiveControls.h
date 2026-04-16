@@ -5,11 +5,15 @@
 
 namespace prime {
 
+// MOD PURPOSE: Handle interacting with "ContextSensitive" interactibles in MP3 in a more
+// intuitive manner for mouse and keyboard. Typically controlled with W/D and mouse.
 class ContextSensitiveControls : public PrimeMod {
 public:
   void run_mod(Game game, Region region) override;
   bool init_mod(Game game, Region region) override;
-  void on_state_change(ModState old_state) override {}
+  void on_state_change(ModState) override {}
+  bool is_cheat() const override { return false; }
+  GEN_NAME(ContextSensitiveControls)
 
 private:
   u32 motion_vtf_address;
@@ -27,4 +31,5 @@ private:
     0x0202F7
   };
 };
-}
+
+} // namespace prime

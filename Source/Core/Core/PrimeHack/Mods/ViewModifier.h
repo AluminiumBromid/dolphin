@@ -19,9 +19,12 @@ class ViewModifier : public PrimeMod {
 public:
   void run_mod(Game game, Region region) override;
   bool init_mod(Game game, Region region) override;
-  void on_state_change(ModState old_state) override {}
+  void on_state_change(ModState) override {}
+  bool is_cheat() const override { return false; }
+  GEN_NAME(ViewModifier)
 
 private:
+  static float get_fov();
   void adjust_viewmodel(float fov, u32 arm_address, u32 znear_address, u32 znear_value);
   void adjust_fov_mp3(float fov, u16 camera_id);
   static void on_camera_change(PowerPC::PowerPCState&, PowerPC::MMU&, u32);
@@ -42,4 +45,4 @@ private:
   void init_mod_mp3_standalone(Region region);
 };
 
-}
+} // namespace prime

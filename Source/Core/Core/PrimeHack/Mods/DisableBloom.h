@@ -5,6 +5,7 @@
 
 namespace prime {
 
+// MOD PURPOSE: Disables the garish bloom prime 3 added, alongside trilogy prime 1 & 2
 class DisableBloom : public PrimeMod {
 public:
   void run_mod(Game game, Region region) override {
@@ -24,32 +25,32 @@ public:
     }
     set_code_group_state("bloom_disable", GetBloom() ? ModState::ENABLED : ModState::DISABLED);
   }
+
   // BLR writing machine
   bool init_mod(Game game, Region region) override {
     switch (game) {
-    case Game::PRIME_1:
-      if (region == Region::NTSC_U) {
-        add_code_change(0x80290edc, 0x4e800020, "bloom_disable");
-      } else if (region == Region::PAL) {
-        add_code_change(0x80291258, 0x4e800020, "bloom_disable");
-      } else { // region == Region::NTSC_J
-        add_code_change(0x802919bc, 0x4e800020, "bloom_disable");
-      }
-      break;
-    case Game::PRIME_2:
-      if (region == Region::NTSC_U) {
-        add_code_change(0x80292204, 0x4e800020, "bloom_disable");
-      } else if (region == Region::PAL) {
-        add_code_change(0x80294a40, 0x4e800020, "bloom_disable");
-      } else { // region == Region::NTSC_J
-        add_code_change(0x8029137c, 0x4e800020, "bloom_disable");
-      }
-      break;
-    default:
-      break;
+      case Game::PRIME_1:
+        if (region == Region::NTSC_U) {
+          add_code_change(0x80290edc, 0x4e800020, "bloom_disable");
+        } else if (region == Region::PAL) {
+          add_code_change(0x80291258, 0x4e800020, "bloom_disable");
+        }
+        break;
+      case Game::PRIME_2:
+        if (region == Region::NTSC_U) {
+          add_code_change(0x80292204, 0x4e800020, "bloom_disable");
+        } else if (region == Region::PAL) {
+          add_code_change(0x80294a40, 0x4e800020, "bloom_disable");
+        }
+        break;
+      default:
+        break;
     }
     return true;
   }
-  void on_state_change(ModState old_state) override {}
+  void on_state_change(ModState) override {}
+  bool is_cheat() const override { return false; }
+  GEN_NAME(DisableBloom)
 };
-}
+
+} // namespace prime

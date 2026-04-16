@@ -123,7 +123,6 @@
 #include "DolphinQt/TAS/WiiTASInputWindow.h"
 #include "DolphinQt/ToolBar.h"
 #include "DolphinQt/WiiUpdate.h"
-#include "DolphinQt/CVarsWindow.h"
 
 #include "UICommon/DiscordPresence.h"
 #include "UICommon/GameFile.h"
@@ -156,6 +155,13 @@ static void InstallSignalHandler()
   sigaction(SIGTERM, &sa, nullptr);
 }
 #endif
+
+static QString WindowTitleStr() {
+  static QString title = QStringLiteral("%VERSION%")
+    .replace(QStringLiteral("%VERSION%"),
+      QString::fromStdString(Common::GetScmRevStr()));
+  return title;
+}
 
 static WindowSystemType GetWindowSystemType()
 {
@@ -216,7 +222,7 @@ MainWindow::MainWindow(Core::System& system, std::unique_ptr<BootParameters> boo
                        const std::string& movie_path)
     : QMainWindow(nullptr), m_system(system)
 {
-  setWindowTitle(QString::fromStdString(Common::GetScmRevStr()));
+  setWindowTitle(WindowTitleStr());
   setWindowIcon(Resources::GetAppIcon());
   setUnifiedTitleAndToolBarOnMac(true);
   setAcceptDrops(true);
@@ -602,22 +608,6 @@ void MainWindow::ConnectMenuBar()
   connect(m_game_list, &GameList::SelectionChanged, m_menu_bar, &MenuBar::SelectionChanged);
   connect(this, &MainWindow::ReadOnlyModeChanged, m_menu_bar, &MenuBar::ReadOnlyModeChanged);
   connect(this, &MainWindow::RecordingStatusChanged, m_menu_bar, &MenuBar::RecordingStatusChanged);
-
-  connect(m_menu_bar, &MenuBar::OpenCVarsMenu, this, &MainWindow::OpenCVarsMenu);
-}
-
-void MainWindow::OpenCVarsMenu()
-{
-  if (m_cvars_window != nullptr)
-  {
-    delete m_cvars_window;
-    m_cvars_window = nullptr;
-  }
-  m_cvars_window = new CVarsWindow(this);
-
-  m_cvars_window->show();
-  m_cvars_window->raise();
-  m_cvars_window->activateWindow();
 }
 
 void MainWindow::ConnectHotkeys()
@@ -1294,7 +1284,7 @@ void MainWindow::HideRenderWidget(bool reinit, bool is_exit)
     m_rendering_to_main = false;
     m_stack->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     disconnect(Host::GetInstance(), &Host::RequestTitle, this, &MainWindow::setWindowTitle);
-    setWindowTitle(QString::fromStdString(Common::GetScmRevStr()));
+    setWindowTitle(WindowTitleStr());
   }
 
   // The following code works around a driver bug that would lead to Dolphin crashing when changing

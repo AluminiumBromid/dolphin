@@ -17,6 +17,12 @@
     <Import Project="$(VSPropsDir)QtCompile.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>PrimeHack</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>PrimeHack</TargetName>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalIncludeDirectories>$(ProjectDir)Config\Graphics;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -42,12 +48,16 @@
     <Manifest>
       <AdditionalManifestFiles>DolphinQt.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
+    <Link>
+      <OutputFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AboutDialog.cpp" />
     <ClCompile Include="CheatSearchFactoryWidget.cpp" />
     <ClCompile Include="CheatSearchWidget.cpp" />
     <ClCompile Include="CheatsManager.cpp" />
+    <ClCompile Include="ConfigureModWindow.cpp" />
     <ClCompile Include="Achievements\AchievementBox.cpp" />
     <ClCompile Include="Achievements\AchievementHeaderWidget.cpp" />
     <ClCompile Include="Achievements\AchievementLeaderboardWidget.cpp" />
@@ -145,6 +155,7 @@
     <ClCompile Include="Config\VerifyWidget.cpp" />
     <ClCompile Include="Config\WiimoteControllersWidget.cpp" />
     <ClCompile Include="ConvertDialog.cpp" />
+    <ClCompile Include="CVarDataModel.cpp" />
     <ClCompile Include="Debugger\AssembleInstructionDialog.cpp" />
     <ClCompile Include="Debugger\AssemblerWidget.cpp" />
     <ClCompile Include="Debugger\AssemblyEditor.cpp" />
@@ -197,7 +208,6 @@
     <ClCompile Include="NetPlay\PadMappingDialog.cpp" />
     <ClCompile Include="NANDRepairDialog.cpp" />
     <ClCompile Include="NKitWarningDialog.cpp" />
-    <ClCompile Include="CVarsWindow.cpp" />
     <ClCompile Include="pch_qt.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -468,8 +478,9 @@
     <QtMoc Include="TAS\TASSpinBox.h" />
     <QtMoc Include="TAS\WiiTASInputWindow.h" />
     <QtMoc Include="ToolBar.h" />
-    <QtMoc Include="CvarsWindow.h" />
     <QtMoc Include="Updater.h" />
+    <QtMoc Include="ConfigureModWindow.h" />
+    <QtMoc Include="CVarDataModel.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />

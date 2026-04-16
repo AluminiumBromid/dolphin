@@ -313,6 +313,7 @@ extern const Info<bool> MAIN_GAMELIST_COLUMN_BLOCK_SIZE;
 extern const Info<bool> MAIN_GAMELIST_COLUMN_COMPRESSION;
 extern const Info<bool> MAIN_GAMELIST_COLUMN_TIME_PLAYED;
 extern const Info<bool> MAIN_GAMELIST_COLUMN_TAGS;
+extern const Info<bool> MAIN_GAMELIST_COLUMN_PHSUPPORT;
 
 // Main.FifoPlayer
 
@@ -409,6 +410,8 @@ extern const Info<bool> PRIMEHACK_RESTORE_SCANDASH;
 extern const Info<bool> PRIMEHACK_FRIENDVOUCHERS;
 extern const Info<bool> PRIMEHACK_DISABLE_HUDMEMO;
 extern const Info<bool> PRIMEHACK_UNLOCK_HYPERMODE;
+extern const Info<bool> PRIMEHACK_ANYBEAM_DOOR;
+extern const Info<bool> PRIMEHACK_MODLOADER_ENABLED;
 
 // GameCube path utility functions
 
