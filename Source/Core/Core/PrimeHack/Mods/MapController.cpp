@@ -79,14 +79,13 @@ void rotate_map_mp2(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job
 
 void rotate_map_mp3(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job)
 {
-  MapController* const map_controller =
-      static_cast<MapController*>(GetHackManager()->get_mod("map_controller"));
+  MapController* const map_controller = GetMod<MapController>();
   if (job == 0) {
-    if (ppc_state.gpr[30] == 1 && mmu.Read_U32(ppc_state.gpr[29] + 0x1d4) == 0) {
-      map_controller->reset_rotation(map_controller->get_player_yaw(),
-                                     mmu.Read_F32(ppc_state.gpr[29] + 0xdc) * -(kPi / 180.f));
+    if (ppc_state.gpr[30] == 1 && mmu.Read<u32>(ppc_state.gpr[29] + 0x1d4) == 0)
+    {
+      map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[29] + 0xdc) * -(kPi / 180.f));
     }
-    ppc_state.gpr[24] = mmu.Read_U32(ppc_state.gpr[29] + 0x1d8);
+    ppc_state.gpr[24] = mmu.Read<u32>(ppc_state.gpr[29] + 0x1d8);
   } else if (job == 1) {
     quat r = map_controller->compute_orientation();
     write_quat(mmu, r, ppc_state.gpr[29] + 0xbc);
@@ -95,16 +94,14 @@ void rotate_map_mp3(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job
 
 void rotate_map_mp3_sa(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job)
 {
-  MapController* const map_controller =
-      static_cast<MapController*>(GetHackManager()->get_mod("map_controller"));
+  MapController* const map_controller = GetMod<MapController>();
   if (job == 0)
   {
-    if (ppc_state.gpr[31] == 1 && mmu.Read_U32(ppc_state.gpr[29] + 0x1f8) == 0)
+    if (ppc_state.gpr[31] == 1 && mmu.Read<u32>(ppc_state.gpr[29] + 0x1f8) == 0)
     {
-      map_controller->reset_rotation(map_controller->get_player_yaw(),
-                                     mmu.Read_F32(ppc_state.gpr[29] + 0x100) * -(kPi / 180.f));
+      map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[29] + 0x100) * -(kPi / 180.f));
     }
-    ppc_state.gpr[24] = mmu.Read_U32(ppc_state.gpr[29] + 0x1fc);
+    ppc_state.gpr[24] = mmu.Read<u32>(ppc_state.gpr[29] + 0x1fc);
   }
   else if (job == 1)
   {  // Hooks ProcessMapRotateInput
@@ -113,9 +110,7 @@ void rotate_map_mp3_sa(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 
   }
 }
 
-
-
-}
+} // namespace
 
 float MapController::get_player_yaw() const {
   // HACK: This is called by a vmcall, so the thread guard will be invalid
