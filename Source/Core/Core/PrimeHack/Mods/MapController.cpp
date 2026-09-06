@@ -89,24 +89,45 @@ void rotate_map_mp3(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job
   } else if (job == 1) {
     quat r = map_controller->compute_orientation();
     write_quat(mmu, r, ppc_state.gpr[29] + 0xbc);
-  }
-}
-
-void rotate_map_mp3_sa(PowerPC::PowerPCState& ppc_state, PowerPC::MMU& mmu, u32 job)
-{
-  MapController* const map_controller = GetMod<MapController>();
-  if (job == 0)
+  } else if (job == 2)  // This VMC is used to keep the map from jumping after certain page transitions.
   {
-    if (ppc_state.gpr[31] == 1 && mmu.Read<u32>(ppc_state.gpr[29] + 0x1f8) == 0)
+    // Original instruction: li r3, 1
+    ppc_state.gpr[3] = 1;
+
+    const u32 web_interface = ppc_state.gpr[26];
+    const u32 web_interface_main_index = mmu.Read<u32>( web_interface + 0x28c);  // This index is 0 when using the map and indexes which tab on the left side of the screen we are in.
+    const u32 web_interface_current_page_id = mmu.Read<u32>(web_interface + 0xa4);  // Currently displayed page id (e.g. 0x4c = map)
+    const u32 web_interface_target_page_id = mmu.Read<u32>(web_interface + 0xf8);  // Page id we are switching to
+    const u32 automapper = mmu.Read<u32>(web_interface + 0x1d4);
+    bool menu_startup = ppc_state.gpr[27] == 0;
+    const u32 map_page_id = 0x4c;   // 3D map id
+    const u32 room_page_id = 0x4f;  // Zoomed in 3D map id
+
+    if (menu_startup || web_interface_target_page_id != map_page_id || web_interface_current_page_id == map_page_id)
+      return;
+
+    if (web_interface_current_page_id == room_page_id)  // We go from a zoomed in 3D map (0x4F), back to a zoomed out 3D map (0x4C)
     {
-      map_controller->reset_rotation(map_controller->get_player_yaw(), mmu.Read_F32(ppc_state.gpr[29] + 0x100) * -(kPi / 180.f));
+      const float qx = mmu.Read_F32(automapper + 0xbc);
+      const float qy = mmu.Read_F32(automapper + 0xc0);
+      const float qz = mmu.Read_F32(automapper + 0xc4);
+      const float qw = mmu.Read_F32(automapper + 0xc8);
+
+      const float horizontal = atan2f(2.f * (qy * qz + qw * qx), 1.f - 2.f * (qx * qx + qy * qy));
+      const float vertical = atan2f(2.f * (qx * qy + qw * qz), 1.f - 2.f * (qy * qy + qz * qz));
+
+      map_controller->reset_rotation(horizontal, vertical); // Reset the rotation to the same values as the zoomed in 3D map, so that the transition is seamless.
     }
-    ppc_state.gpr[24] = mmu.Read<u32>(ppc_state.gpr[29] + 0x1fc);
-  }
-  else if (job == 1)
-  {  // Hooks ProcessMapRotateInput
-    quat r = map_controller->compute_orientation();
-    write_quat(mmu, r, ppc_state.gpr[29] + 0xec);
+    else if (web_interface_main_index == 0)  // We go from any 2D map (planet) to the 3D map.
+    {
+      // Quat values seem to always be the same when going from any planet to the 3D map.
+      // If an exception is found, this has to change.
+      map_controller->reset_rotation(kPi, -kPi / 4.f);
+    }
+    else  // We go from any non-map menu to the 3D map.
+    {
+      map_controller->reset_rotation(map_controller->get_player_yaw(), (mmu.Read_F32(automapper + 0xdc) - 30.f) * -(kPi / 180.f));  // No idea why the 30-degree offset is needed
+    }
   }
 }
 
@@ -167,30 +188,37 @@ quat MapController::compute_orientation() {
 
 bool MapController::init_mod(Game game, Region region) {
   switch (game) {
-  case Game::PRIME_1:
-    init_mod_mp1(region);
-    break;
-  case Game::PRIME_1_GCN:
-  case Game::PRIME_1_GCN_R1:
-  case Game::PRIME_1_GCN_R2:
-    init_mod_mp1_gc(game, region);
-    break;
-  case Game::PRIME_2:
-    init_mod_mp2(region);
-    break;
-  case Game::PRIME_2_GCN:
-    init_mod_mp2_gc(region);
-    break;
-  case Game::PRIME_3:
-    init_mod_mp3(region);
-    break;
-  case Game::PRIME_3_STANDALONE:
-    init_mod_mp3_sa(region);
-    break;
-  default:
-    break;
+    case Game::PRIME_1:
+      init_mod_mp1(region);
+      break;
+    case Game::PRIME_1_GCN:
+    case Game::PRIME_1_GCN_R1:
+    case Game::PRIME_1_GCN_R2:
+      init_mod_mp1_gc(game, region);
+      break;
+    case Game::PRIME_2:
+      init_mod_mp2(region);
+      break;
+    case Game::PRIME_2_GCN:
+      init_mod_mp2_gc(region);
+      break;
+    case Game::PRIME_3:
+      init_mod_mp3(region);
+      break;
+    case Game::PRIME_3_STANDALONE:
+      init_mod_mp3_sa(region);
+      break;
+    default:
+      break;
   }
   return true;
+}
+
+void MapController::on_state_change(ModState old_state) {
+  if (old_state == ModState::ENABLED) {
+    frame_dx = 0.f;
+    frame_dy = 0.f;
+  }
 }
 
 void MapController::init_mod_mp1_gc(Game game, Region region) {
@@ -302,17 +330,23 @@ void MapController::init_mod_mp2(Region region) {
 
 void MapController::init_mod_mp3(Region region)
 {
-  const int map_controller_rotate =
-      Core::System::GetInstance().GetPowerPC().RegisterVmcall(rotate_map_mp3);
-  if (map_controller_rotate == -1)
-  {
+  const int map_controller_rotate = Core::System::GetInstance().GetPowerPC().RegisterVmcall(rotate_map_mp3);
+  if (map_controller_rotate == -1) {
     return;
   }
   const u32 vmc_update_rotation = gen_vmcall(static_cast<u32>(map_controller_rotate), 0);
   const u32 vmc_rotate_map = gen_vmcall(static_cast<u32>(map_controller_rotate), 1);
-  if (region == Region::NTSC_U || region == Region::PAL) {
-    add_code_change(0x80021eb8, vmc_update_rotation);
+  const u32 vmc_menu_transition = gen_vmcall(static_cast<u32>(map_controller_rotate), 2);
+  if (region == Region::NTSC_U) {
+    add_code_change(0x80021EB8, vmc_update_rotation);
     add_code_change(0x8001D468, vmc_rotate_map);
+    add_code_change(0x802BC3D0, vmc_menu_transition);
+    add_code_change(0x8001E67C, 0x60000000);  // disable 'Z' gate
+    add_code_change(0x8001D430, 0x60000000);  // enable simultaneous panning and rotation
+  } else if (region == Region::PAL) {
+    add_code_change(0x80021EB8, vmc_update_rotation);
+    add_code_change(0x8001D468, vmc_rotate_map);
+    add_code_change(0x802BC0A8, vmc_menu_transition);
     add_code_change(0x8001E67C, 0x60000000);  // disable 'Z' gate
     add_code_change(0x8001D430, 0x60000000);  // enable simultaneous panning and rotation
   }
@@ -320,31 +354,25 @@ void MapController::init_mod_mp3(Region region)
 
 void MapController::init_mod_mp3_sa(Region region)
 {
-  const int map_controller_rotate =
-      Core::System::GetInstance().GetPowerPC().RegisterVmcall(rotate_map_mp3_sa);
-  if (map_controller_rotate == -1)
-  {
+  const int map_controller_rotate = Core::System::GetInstance().GetPowerPC().RegisterVmcall(rotate_map_mp3);
+  if (map_controller_rotate == -1) {
     return;
   }
   const u32 vmc_update_rotation = gen_vmcall(static_cast<u32>(map_controller_rotate), 0);
   const u32 vmc_rotate_map = gen_vmcall(static_cast<u32>(map_controller_rotate), 1);
-  if (region == Region::NTSC_U)
-  {
-    add_code_change(0x8002eadc, vmc_update_rotation);
-    add_code_change(0x800293d0, vmc_rotate_map);
-    add_code_change(0x80029d48, 0x38a0002b);
-    add_code_change(0x80029d68, 0x38a0002c);
-    add_code_change(0x80029d88, 0x38a0002d);
-    add_code_change(0x80029da8, 0x38a0002e);
-  }
-  else if (region == Region::PAL)
-  {
-    add_code_change(0x80030030, vmc_update_rotation);
-    add_code_change(0x80029440, vmc_rotate_map);
-    add_code_change(0x80029db8, 0x38a0002b);
-    add_code_change(0x80029dd8, 0x38a0002c);
-    add_code_change(0x80029df8, 0x38a0002d);
-    add_code_change(0x80029e18, 0x38a0002e);
+  const u32 vmc_menu_transition = gen_vmcall(static_cast<u32>(map_controller_rotate), 2);
+  if (region == Region::NTSC_U) {
+    add_code_change(0x80022114, vmc_update_rotation);
+    add_code_change(0x8001D6E8, vmc_rotate_map);
+    add_code_change(0x802BCD30, vmc_menu_transition);
+    add_code_change(0x8001E8FC, 0x60000000);  // disable 'Z' gate
+    add_code_change(0x8001D6B0, 0x60000000);  // enable simultaneous panning and rotation
+  } else if (region == Region::PAL) {
+    add_code_change(0x800221FC, vmc_update_rotation);
+    add_code_change(0x8001D7D0, vmc_rotate_map);
+    add_code_change(0x802BE1B4, vmc_menu_transition);
+    add_code_change(0x8001E9E4, 0x60000000);  // disable 'Z' gate
+    add_code_change(0x8001D798, 0x60000000);  // enable simultaneous panning and rotation
   }
 }
 
