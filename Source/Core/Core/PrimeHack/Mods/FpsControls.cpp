@@ -305,13 +305,21 @@ void FpsControls::run_mod_mp1(Region region) {
   swap_alt_profiles(read32(ball_state), read32(menu_state), 0);
 
   LOOKUP_DYN(camera_state);
-  if (read32(camera_state) != 0) {
+  const bool game_controls_camera = read32(camera_state) != 0;
+  static bool was_game_controlled = false;
+
+  const bool camera_control_ended = was_game_controlled && !game_controls_camera;
+
+  if (game_controls_camera || camera_control_ended) {
     vec3 fwd = cplayer_xf.fwd();
     yaw = atan2f(fwd.y, fwd.x);
-    // Pitch is always 0 after returning from morph
-    pitch = 0;
-    return;
+    pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
   }
+
+  was_game_controlled = game_controls_camera;
+
+  if (game_controls_camera)
+    return;
 
   calculate_pitchyaw_delta();
   writef32(pitch, firstperson_pitch);
@@ -443,13 +451,21 @@ void FpsControls::run_mod_mp2(Region region) {
   swap_alt_profiles(read32(ball_state), read32(menu_state), read32(screw_state));
 
   LOOKUP_DYN(camera_state);
-  if (read32(camera_state) != 0) {
-    const vec3 fwd = cplayer_xf.fwd();
+  const bool game_controls_camera = read32(camera_state) != 0;
+  static bool was_game_controlled = false;
+
+  const bool camera_control_ended = was_game_controlled && !game_controls_camera;
+
+  if (game_controls_camera || camera_control_ended) {
+    vec3 fwd = cplayer_xf.fwd();
     yaw = atan2f(fwd.y, fwd.x);
-    // Pitch is always 0 after returning from morph
-    pitch = 0;
-    return;
+    pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
   }
+
+  was_game_controlled = game_controls_camera;
+
+  if (game_controls_camera)
+    return;
 
   calculate_pitchyaw_delta();
   writef32(pitch, firstperson_pitch);
@@ -502,15 +518,21 @@ void FpsControls::run_mod_mp2_gc(Region region) {
   }
 
   LOOKUP_DYN(camera_state);
-  if (read32(camera_state) != 0) {
+  const bool game_controls_camera = read32(camera_state) != 0;
+  static bool was_game_controlled = false;
+
+  const bool camera_control_ended = was_game_controlled && !game_controls_camera;
+
+  if (game_controls_camera || camera_control_ended) {
     vec3 fwd = cplayer_xf.fwd();
     yaw = atan2f(fwd.y, fwd.x);
-    // Pitch is always 0 after returning from morph
-    pitch = 0;
-    // Prime 2 has a flicker for one frame after unmorphing
-    writef32(pitch, firstperson_pitch);
-    return;
+    pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
   }
+
+  was_game_controlled = game_controls_camera;
+
+  if (game_controls_camera)
+    return;
 
   calculate_pitchyaw_delta();
   writef32(pitch, firstperson_pitch);
@@ -713,17 +735,27 @@ void FpsControls::run_mod_mp3(Game active_game, Region active_region) {
   mp3_handle_cursor(true, true);
   set_cursor_pos(0, 0);
 
+  LOOKUP_DYN(control_state);
+  const bool game_controls_camera = read32(control_state) != 1;
+  static bool was_game_controlled = false;
+
+  const bool camera_control_ended = was_game_controlled && !game_controls_camera;
+
   const vec3 fwd = cplayer_xf.fwd();
   yaw = atan2f(fwd.y, fwd.x);
+
+  if (game_controls_camera || camera_control_ended) {
+    pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
+  }
+
+  was_game_controlled = game_controls_camera;
+
+  if (game_controls_camera)
+    return;
 
   if (read32(ball_state) != 0) {
     // Pitch is always 0 after returning from morph
     pitch = 0;
-    return;
-  }
-
-  LOOKUP_DYN(control_state);
-  if (read32(control_state) != 1) {
     return;
   }
 
