@@ -359,13 +359,22 @@ void FpsControls::run_mod_mp1_gc(Region region) {
   }
 
   LOOKUP_DYN(camera_state);
-  if (read32(camera_state) != 0) {
+  const bool game_controls_camera = read32(camera_state) != 0;
+  static bool was_game_controlled = false;
+
+  const bool camera_control_ended = was_game_controlled && !game_controls_camera;
+
+  if (game_controls_camera || camera_control_ended)
+  {
     vec3 fwd = cplayer_xf.fwd();
     yaw = atan2f(fwd.y, fwd.x);
-    // Pitch is always 0 after returning from morph
-    pitch = 0;
-    return;
+    pitch = atan2f(fwd.z, sqrtf(fwd.x * fwd.x + fwd.y * fwd.y));
   }
+
+  was_game_controlled = game_controls_camera;
+
+  if (game_controls_camera)
+    return;
 
   calculate_pitchyaw_delta();
   writef32(pitch, firstperson_pitch);
