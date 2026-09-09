@@ -97,8 +97,8 @@ public:
   void BindEFBFramebuffer();
 
   // Resolve color/depth textures to a non-msaa texture, and return it.
-  AbstractTexture* ResolveEFBColorTexture(const MathUtil::Rectangle<int>& region);
-  AbstractTexture* ResolveEFBColorTextureNoAverage(const MathUtil::Rectangle<int>& region);
+  AbstractTexture* ResolveEFBColorTexture(const MathUtil::Rectangle<int>& region,
+                                          bool sample_zero = false);
   AbstractTexture* ResolveEFBDepthTexture(const MathUtil::Rectangle<int>& region,
                                           bool force_r32f = false);
 
@@ -209,7 +209,7 @@ protected:
   std::unique_ptr<AbstractFramebuffer> m_efb_color_resolve_framebuffer;
   std::unique_ptr<AbstractFramebuffer> m_efb_depth_resolve_framebuffer;
   std::unique_ptr<AbstractPipeline> m_efb_color_resolve_pipeline;
-  std::unique_ptr<AbstractPipeline> m_efb_color_resolve_noavg_pipeline;
+  std::unique_ptr<AbstractPipeline> m_efb_color_resolve_sample_zero_pipeline;
   std::unique_ptr<AbstractPipeline> m_efb_depth_resolve_pipeline;
 
   // Pipeline for restoring the contents of the EFB from a save state

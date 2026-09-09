@@ -2316,7 +2316,7 @@ void TextureCacheBase::CopyRenderTargetToTexture(
   // We also linear filtering for both box filtering and downsampling higher resolutions to 1x.
   // TODO: This only produces perfect downsampling for 2x IR, other resolutions will need more
   //       complex down filtering to average all pixels and produce the correct result.
-  bool linear_filter =
+  const bool linear_filter =
       !is_depth_copy &&
       (scaleByHalf || g_framebuffer_manager->GetEFBScale() != 1 || y_scale > 1.0f);
 
@@ -2387,21 +2387,6 @@ void TextureCacheBase::CopyRenderTargetToTexture(
 
   if (copy_to_ram)
   {
-    // Disable filtering for certain copies that look like logical masks
-    bool ram_linear_filter = linear_filter;
-
-    const bool is_i8 = (baseFormat == TextureFormat::I8);
-    const bool is_ia8 = (baseFormat == TextureFormat::IA8);
-
-    const int w = srcRect.GetWidth();
-    const int h = srcRect.GetHeight();
-
-    const bool looks_like_mask = !is_depth_copy && !is_xfb_copy && (is_i8 || is_ia8) &&
-                                 (w <= 64 && h <= 64);  // tweak threshold
-
-    if (looks_like_mask)
-      ram_linear_filter = false;
-
     const std::array<u32, 3> coefficients = GetRAMCopyFilterCoefficients(filter_coefficients);
     PixelFormat srcFormat = bpmem.zcontrol.pixel_format;
     EFBCopyParams format(srcFormat, dstFormat, is_depth_copy, isIntensity,
@@ -2411,9 +2396,14 @@ void TextureCacheBase::CopyRenderTargetToTexture(
     std::unique_ptr<AbstractStagingTexture> staging_texture = GetEFBCopyStagingTexture();
     if (staging_texture)
     {
+      // Keep discrete mask values intact during both MSAA resolve and texture sampling.
+      const bool looks_like_mask = !is_depth_copy && !is_xfb_copy &&
+                                   baseFormat == TextureFormat::I8 && srcRect.GetWidth() <= 32 &&
+                                   srcRect.GetHeight() <= 32;
+      const bool linear_filter_copy = linear_filter && !looks_like_mask;
       CopyEFB(staging_texture.get(), format, tex_w, bytes_per_row, num_blocks_y, dstStride, srcRect,
-              scaleByHalf, ram_linear_filter, y_scale, gamma, clamp_top, clamp_bottom, coefficients);
-
+              scaleByHalf, linear_filter_copy, looks_like_mask, y_scale, gamma, clamp_top,
+              clamp_bottom, coefficients);
       // We can't defer if there is no VRAM copy (since we need to update the hash).
       if (!copy_to_vram || !g_ActiveConfig.bDeferEFBCopies)
       {
@@ -2930,7 +2920,8 @@ void TextureCacheBase::CopyEFBToCacheEntry(RcTcacheEntry& entry, bool is_depth_c
 void TextureCacheBase::CopyEFB(AbstractStagingTexture* dst, const EFBCopyParams& params,
                                u32 native_width, u32 bytes_per_row, u32 num_blocks_y,
                                u32 memory_stride, const MathUtil::Rectangle<int>& src_rect,
-                               bool scale_by_half, bool linear_filter, float y_scale, float gamma,
+                               bool scale_by_half, bool linear_filter, bool sample_zero,
+                               float y_scale, float gamma,
                                bool clamp_top, bool clamp_bottom,
                                const std::array<u32, 3>& filter_coefficients)
 {
@@ -2948,20 +2939,9 @@ void TextureCacheBase::CopyEFB(AbstractStagingTexture* dst, const EFBCopyParams&
   const auto scaled_src_rect = g_framebuffer_manager->ConvertEFBRectangle(src_rect);
   const auto framebuffer_rect = g_gfx->ConvertFramebufferRectangle(
       scaled_src_rect, g_framebuffer_manager->GetEFBFramebuffer());
-
-  AbstractTexture* src_texture = nullptr;
-  if (linear_filter)
-  {
-    src_texture =
-        params.depth ? g_framebuffer_manager->ResolveEFBDepthTexture(framebuffer_rect) :
-                       g_framebuffer_manager->ResolveEFBColorTexture(framebuffer_rect);
-  }
-  else
-  {
-    src_texture =
-        params.depth ? g_framebuffer_manager->ResolveEFBDepthTexture(framebuffer_rect) :
-                       g_framebuffer_manager->ResolveEFBColorTextureNoAverage(framebuffer_rect);
-  }
+  AbstractTexture* src_texture =
+      params.depth ? g_framebuffer_manager->ResolveEFBDepthTexture(framebuffer_rect) :
+                     g_framebuffer_manager->ResolveEFBColorTexture(framebuffer_rect, sample_zero);
 
   g_gfx->BeginUtilityDrawing();
   src_texture->FinishedRendering();

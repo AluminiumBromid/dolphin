@@ -354,7 +354,7 @@ std::string GenerateResolveColorPixelShader(u32 samples)
   return code.GetBuffer();
 }
 
-std::string GenerateResolveColorNoAveragePixelShader(u32 samples)
+std::string GenerateResolveColorSampleZeroPixelShader(u32 samples)
 {
   ShaderCode code;
   EmitSamplerDeclarations(code, 0, 1, true);

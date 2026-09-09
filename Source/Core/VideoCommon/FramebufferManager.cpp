@@ -315,7 +315,8 @@ void FramebufferManager::BindEFBFramebuffer()
   g_gfx->SetFramebuffer(m_efb_framebuffer.get());
 }
 
-AbstractTexture* FramebufferManager::ResolveEFBColorTexture(const MathUtil::Rectangle<int>& region)
+AbstractTexture* FramebufferManager::ResolveEFBColorTexture(const MathUtil::Rectangle<int>& region,
+                                                            bool sample_zero)
 {
   // Return the normal EFB texture if multisampling is off.
   if (!IsEFBMultisampled())
@@ -326,7 +327,7 @@ AbstractTexture* FramebufferManager::ResolveEFBColorTexture(const MathUtil::Rect
   clamped_region.ClampUL(0, 0, GetEFBWidth(), GetEFBHeight());
 
   // Resolve to our already-created texture.
-  if (g_backend_info.bSupportsPartialMultisampleResolve)
+  if (g_backend_info.bSupportsPartialMultisampleResolve && !sample_zero)
   {
     for (u32 layer = 0; layer < GetEFBLayers(); layer++)
     {
@@ -339,7 +340,9 @@ AbstractTexture* FramebufferManager::ResolveEFBColorTexture(const MathUtil::Rect
     g_gfx->BeginUtilityDrawing();
     m_efb_color_texture->FinishedRendering();
     g_gfx->SetAndDiscardFramebuffer(m_efb_color_resolve_framebuffer.get());
-    g_gfx->SetPipeline(m_efb_color_resolve_pipeline.get());
+    AbstractPipeline* pipeline = sample_zero ? m_efb_color_resolve_sample_zero_pipeline.get() :
+                                               m_efb_color_resolve_pipeline.get();
+    g_gfx->SetPipeline(pipeline);
     g_gfx->SetTexture(0, m_efb_color_texture.get());
     g_gfx->SetSamplerState(0, RenderState::GetPointSamplerState());
     g_gfx->SetViewportAndScissor(clamped_region);
@@ -350,34 +353,6 @@ AbstractTexture* FramebufferManager::ResolveEFBColorTexture(const MathUtil::Rect
   m_efb_resolve_color_texture->FinishedRendering();
   return m_efb_resolve_color_texture.get();
 }
-
-AbstractTexture*
-FramebufferManager::ResolveEFBColorTextureNoAverage(const MathUtil::Rectangle<int>& region)
-{
-  // Return the normal EFB texture if multisampling is off.
-  if (!IsEFBMultisampled())
-    return m_efb_color_texture.get();
-
-  // It's not valid to resolve an out-of-range rectangle.
-  MathUtil::Rectangle<int> clamped_region = region;
-  clamped_region.ClampUL(0, 0, GetEFBWidth(), GetEFBHeight());
-
-  // Skip partial mutlisample resolve
-  m_efb_color_texture->FinishedRendering();
-  g_gfx->BeginUtilityDrawing();
-  g_gfx->SetAndDiscardFramebuffer(m_efb_color_resolve_framebuffer.get());
-  g_gfx->SetPipeline(m_efb_color_resolve_noavg_pipeline.get());
-  g_gfx->SetTexture(0, m_efb_color_texture.get());
-  g_gfx->SetSamplerState(0, RenderState::GetPointSamplerState());
-  g_gfx->SetViewportAndScissor(clamped_region);
-  g_gfx->Draw(0, 3);
-  m_efb_resolve_color_texture->FinishedRendering();
-  g_gfx->EndUtilityDrawing();
-
-  m_efb_resolve_color_texture->FinishedRendering();
-  return m_efb_resolve_color_texture.get();
-}
-
 
 AbstractTexture* FramebufferManager::ResolveEFBDepthTexture(const MathUtil::Rectangle<int>& region,
                                                             bool force_r32f)
@@ -681,15 +656,15 @@ bool FramebufferManager::CompileReadbackPipelines()
       return false;
 
     config.framebuffer_state.color_texture_format = GetEFBColorFormat();
-    auto color_resolve_noavg_shader = g_gfx->CreateShaderFromSource(
-        ShaderStage::Pixel, FramebufferShaderGen::GenerateResolveColorNoAveragePixelShader(GetEFBSamples()),
-        nullptr, "Color resolve (no average) pixel shader");
-    if (!color_resolve_noavg_shader)
+    auto color_resolve_sample_zero_shader = g_gfx->CreateShaderFromSource(
+        ShaderStage::Pixel, FramebufferShaderGen::GenerateResolveColorSampleZeroPixelShader(GetEFBSamples()),
+        nullptr, "Color resolve (sample zero) pixel shader");
+    if (!color_resolve_sample_zero_shader)
       return false;
 
-    config.pixel_shader = color_resolve_noavg_shader.get();
-    m_efb_color_resolve_noavg_pipeline = g_gfx->CreatePipeline(config);
-    if (!m_efb_color_resolve_noavg_pipeline)
+    config.pixel_shader = color_resolve_sample_zero_shader.get();
+    m_efb_color_resolve_sample_zero_pipeline = g_gfx->CreatePipeline(config);
+    if (!m_efb_color_resolve_sample_zero_pipeline)
       return false;
 
     if (!g_backend_info.bSupportsPartialMultisampleResolve)
@@ -730,6 +705,7 @@ bool FramebufferManager::CompileReadbackPipelines()
 
 void FramebufferManager::DestroyReadbackPipelines()
 {
+  m_efb_color_resolve_sample_zero_pipeline.reset();
   m_efb_depth_resolve_pipeline.reset();
   m_efb_depth_cache.copy_pipeline.reset();
   m_efb_color_cache.copy_pipeline.reset();
