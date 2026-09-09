@@ -682,8 +682,8 @@ bool FramebufferManager::CompileReadbackPipelines()
 
     config.framebuffer_state.color_texture_format = GetEFBColorFormat();
     auto color_resolve_noavg_shader = g_gfx->CreateShaderFromSource(
-        ShaderStage::Pixel,FramebufferShaderGen::GenerateResolveColorNoAveragePixelShader(GetEFBSamples()),
-        "Color resolve (no average) pixel shader");
+        ShaderStage::Pixel, FramebufferShaderGen::GenerateResolveColorNoAveragePixelShader(GetEFBSamples()),
+        nullptr, "Color resolve (no average) pixel shader");
     if (!color_resolve_noavg_shader)
       return false;
 
